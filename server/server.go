@@ -31,7 +31,7 @@ func NewSSHServer(privKey gossh.Signer, banner string) *ssh.Server {
 			fmt.Fprintln(s, "Hello world from server")
 		},
 		Version: "trisend-0.1",
-		Banner:  "banner",
+		Banner:  banner,
 		// PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {},
 		ServerConfigCallback: func(ctx ssh.Context) *gossh.ServerConfig {
 			conf := &gossh.ServerConfig{}
