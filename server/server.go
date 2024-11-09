@@ -54,5 +54,8 @@ func NewSSHServer(privKey gossh.Signer, banner string) *ssh.Server {
 			conf.AddHostKey(privKey)
 			return conf
 		},
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": handler.HandleSFTP,
+		},
 	}
 }
