@@ -1,22 +1,14 @@
 package server
 
 import (
-	"fmt"
-	"io"
 	"net/http"
 	"time"
-	"trisend/util"
+	"trisend/handler"
+	"trisend/tunnel"
 
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"
 )
-
-type Stream struct {
-	Writer io.Writer
-	Done   chan struct{}
-}
-
-var streamings = map[string]chan Stream{}
 
 func NewServer() *http.Server {
 	router := http.NewServeMux()
@@ -24,19 +16,20 @@ func NewServer() *http.Server {
 	router.HandleFunc("/download/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		done := make(chan struct{})
-		stream, ok := streamings[id]
+		streamChan, ok := tunnel.GetStream(id)
+		defer tunnel.DeleteStream(id)
+
 		if !ok {
 			http.Error(w, "stream not found", http.StatusInternalServerError)
 			return
 		}
 
-		stream <- Stream{
+		streamChan <- tunnel.Stream{
 			Writer: w,
 			Done:   done,
 		}
 
 		<-done
-		delete(streamings, id)
 	})
 
 	return &http.Server{
@@ -51,7 +44,7 @@ func NewServer() *http.Server {
 func NewSSHServer(privKey gossh.Signer, banner string) *ssh.Server {
 	return &ssh.Server{
 		Addr:    "0.0.0.0:2222",
-		Handler: handleSSH,
+		Handler: handler.HandleSSH,
 		Banner:  banner,
 		PtyCallback: func(ctx ssh.Context, pty ssh.Pty) bool {
 			return false
@@ -62,19 +55,4 @@ func NewSSHServer(privKey gossh.Signer, banner string) *ssh.Server {
 			return conf
 		},
 	}
-}
-
-func handleSSH(session ssh.Session) {
-	id := util.GetRandomID()
-	fmt.Fprintf(session, "LINK: http://localhost:3000/download/%s\n", id)
-	streamings[id] = make(chan Stream)
-
-	stream := <-streamings[id]
-
-	_, err := io.Copy(stream.Writer, session)
-	if err != nil {
-		session.Write([]byte("an error occurred while streaming data"))
-	}
-
-	close(stream.Done)
 }
