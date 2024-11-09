@@ -31,6 +31,13 @@ func main() {
 	log.Println("HTTP Server running...")
 	log.Println("SSH Server running...")
 
-	go log.Fatal(sshserver.ListenAndServe())
-	log.Fatal(httpserver.ListenAndServe())
+	go func() {
+		if err := sshserver.ListenAndServe(); err != nil {
+			log.Fatalf("SSH server failed %v", err)
+		}
+	}()
+
+	if err := httpserver.ListenAndServe(); err != nil {
+		log.Fatalf("HTTP server failed %v", err)
+	}
 }
