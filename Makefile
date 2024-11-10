@@ -5,6 +5,12 @@ run: build
 build:
 	@go build -o ./bin/main main.go
 
+sshfile:
+	@ssh -p 2222 localhost < ./banner.txt
+
+scpfile: 
+	@scp -P 2222 ./banner.txt localhost:
+
 clean:
 	@ssh-keygen -f "/home/ajpz/.ssh/known_hosts" -R "[localhost]:2222"
 	
