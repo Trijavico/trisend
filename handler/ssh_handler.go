@@ -27,7 +27,9 @@ func HandleSSH(session ssh.Session) {
 }
 
 func HandleSFTP(session ssh.Session) {
-	var handler sftpHandler
+	handler := sftpHandler{
+		session: session,
+	}
 
 	sftpHandlers := sftp.Handlers{
 		FileGet:  sftp.InMemHandler().FileGet,
@@ -37,13 +39,14 @@ func HandleSFTP(session ssh.Session) {
 	}
 
 	srv := sftp.NewRequestServer(session, sftpHandlers)
-
-	if err := srv.Serve(); err != nil {
-		fmt.Fprintf(session, "an error occurred while transfering")
+	if err := srv.Serve(); err != nil && err != io.EOF {
+		fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
 	}
 }
 
-type sftpHandler struct{}
+type sftpHandler struct {
+	session ssh.Session
+}
 
 type writerAt struct {
 	writer io.Writer
@@ -55,7 +58,7 @@ func (t *writerAt) WriteAt(p []byte, off int64) (n int, err error) {
 
 func (t sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 	ID := util.GetRandomID()
-	fmt.Printf("LINK: http://localhost:3000/download/%s\n", ID)
+	fmt.Fprintf(t.session.Stderr(), "LINK: http://localhost:3000/download/%s\n", ID)
 
 	tunnel.SetStream(ID, make(chan tunnel.Stream))
 	streamChan, _ := tunnel.GetStream(ID)

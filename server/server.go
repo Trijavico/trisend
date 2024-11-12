@@ -1,6 +1,8 @@
 package server
 
 import (
+	"archive/zip"
+	"fmt"
 	"net/http"
 	"time"
 	"trisend/handler"
@@ -15,17 +17,32 @@ func NewServer() *http.Server {
 
 	router.HandleFunc("/download/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		filename := r.URL.Query().Get("filename")
+		if filename == "" {
+			filename = "unknown"
+		}
+
 		done := make(chan struct{})
 		streamChan, ok := tunnel.GetStream(id)
 		defer tunnel.DeleteStream(id)
-
 		if !ok {
 			http.Error(w, "stream not found", http.StatusInternalServerError)
 			return
 		}
 
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", "trisend"))
+		w.Header().Set("Content-Type", "application/zip")
+
+		zipWriter := zip.NewWriter(w)
+		defer zipWriter.Close()
+		fileWriter, err := zipWriter.Create(filename)
+		if err != nil {
+			http.Error(w, "stream not found", http.StatusInternalServerError)
+			return
+		}
+
 		streamChan <- tunnel.Stream{
-			Writer: w,
+			Writer: fileWriter,
 			Done:   done,
 		}
 
