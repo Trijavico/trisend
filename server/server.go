@@ -6,6 +6,7 @@ import (
 	"time"
 	"trisend/handler"
 	"trisend/tunnel"
+	"trisend/views"
 
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"
@@ -15,6 +16,11 @@ func NewServer() *http.Server {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/download/{id}", func(w http.ResponseWriter, r *http.Request) {
+		fullURL := fmt.Sprintf("%s/stream/%s?zip=%s", r.URL.Hostname(), r.PathValue("id"), r.URL.Query().Get("zip"))
+		views.Layout(fullURL).Render(r.Context(), w)
+	})
+
+	router.HandleFunc("/stream/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		zipParam := r.URL.Query().Get("zip")
 

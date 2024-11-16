@@ -1,0 +1,21 @@
+package views
+
+templ Layout(url string) {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>Document</title>
+		</head>
+		<body>
+			<h1>Your download is starting...</h1>
+			<p>If the download does not start automatically, <a id="downloadLink" href={ templ.SafeURL(url) }>click here</a>.</p>
+			<script>
+				const downloadURL = new URL(window.location.href)
+				const ID = downloadURL.pathname.split("/").pop()
+				// window.location.href = downloadURL;
+			</script>
+		</body>
+	</html>
+}
