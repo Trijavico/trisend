@@ -1,0 +1,28 @@
+body {
+	height: 100dvh;
+	padding: 1rem;
+	/* background-color: #43ab7c; */
+	/* background-image: */
+	/* 	linear-gradient(to right, rgba(0, 0, 0, 0), rgba(52, 237, 154, .9)), */
+	/* 	radial-gradient(#53D299 1px, transparent 5px), */
+	/* 	radial-gradient(#53D29A 1px, transparent 5px); */
+	/* background-size: 100% 100%, 32px 32px, 32px 32px; */
+	/* background-position: 0 0, 16px 16px, 0 0; */
+	/* animation: scroll-background 1s linear infinite; */
+}
+
+@keyframes scroll-background {
+	from {
+		background-position:
+			0 0,
+			16px 16px,
+			0 0;
+	}
+
+	to {
+		background-position:
+			0 0,
+			-16px -16px,
+			-32px -32px;
+	}
+}

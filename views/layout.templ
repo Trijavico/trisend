@@ -7,14 +7,19 @@ templ Layout(url string) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>Document</title>
+			<link rel="stylesheet" href="/assets/css/custom.css" rel="stylesheet"/>
+			<link rel="stylesheet" href="/assets/css/styles.css" rel="stylesheet"/>
+			<script src="/assets/js/noise.min.js" defer></script>
+			<script src="/assets/js/shift.js" defer></script>
 		</head>
 		<body>
-			<h1>Your download is starting...</h1>
-			<p>If the download does not start automatically, <a id="downloadLink" href={ templ.SafeURL(url) }>click here</a>.</p>
+			<div class="h-full w-full place-content-center text-center bg-[#181818e3] backdrop-blur-md">
+				<h1>Your download is starting...</h1>
+				<p>If the download does not start automatically, <a id="downloadLink" href={ templ.SafeURL(url) }>click here</a>.</p>
+			</div>
 			<script>
 				const downloadURL = new URL(window.location.href)
 				const ID = downloadURL.pathname.split("/").pop()
-				// window.location.href = downloadURL;
 			</script>
 		</body>
 	</html>

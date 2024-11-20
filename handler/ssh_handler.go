@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"trisend/tunnel"
 	"trisend/util"
@@ -69,6 +70,10 @@ func HandleSFTP(session ssh.Session) {
 		fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
 	}
 
+	if handler.writeStream == nil {
+		return
+	}
+
 	if err := handler.zipWriter.Close(); err != nil {
 		fmt.Fprintf(session.Stderr(), "error closing zip: %s\n", err)
 	}
@@ -128,6 +133,7 @@ func (h *sftpHandler) Filecmd(r *sftp.Request) error {
 	}
 	// it executes after transfer
 	if r.Method == "Setstat" {
+		fmt.Fprintf(os.Stdin, "DEBUGGIN!!!\n")
 		return nil
 	}
 	return sftp.ErrSshFxOpUnsupported

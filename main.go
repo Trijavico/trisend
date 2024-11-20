@@ -1,11 +1,16 @@
 package main
 
 import (
-	gossh "golang.org/x/crypto/ssh"
+	"embed"
 	"log"
 	"os"
 	"trisend/server"
+
+	gossh "golang.org/x/crypto/ssh"
 )
+
+//go:embed "assets"
+var Files embed.FS
 
 func main() {
 	keyBytes, err := os.ReadFile("./keys/host")
@@ -25,7 +30,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	httpserver := server.NewServer()
+	httpserver := server.NewServer(Files)
 	sshserver := server.NewSSHServer(privateKey, string(bannerBytes))
 
 	log.Println("HTTP Server running...")

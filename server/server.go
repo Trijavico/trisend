@@ -1,6 +1,7 @@
 package server
 
 import (
+	"embed"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,8 +13,10 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
-func NewServer() *http.Server {
+func NewServer(files embed.FS) *http.Server {
 	router := http.NewServeMux()
+
+	router.Handle("/assets/", http.FileServer(http.FS(files)))
 
 	router.HandleFunc("/download/{id}", func(w http.ResponseWriter, r *http.Request) {
 		fullURL := fmt.Sprintf("%s/stream/%s?zip=%s", r.URL.Hostname(), r.PathValue("id"), r.URL.Query().Get("zip"))
