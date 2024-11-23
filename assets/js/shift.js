@@ -133,15 +133,12 @@ function checkBounds(x, y, radius) {
 }
 
 function createCanvas() {
-	container = document.querySelector('body');
+	container = document.querySelector('.canvas_container');
 	canvas = {
 		a: document.createElement('canvas'),
 		b: document.createElement('canvas')
 	};
 	canvas.b.style = `
-		position: fixed;
-		top: 0;
-		left: 0;
 		width: 100%;
 		height: 100%;
 	`;

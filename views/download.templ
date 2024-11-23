@@ -1,0 +1,12 @@
+package views
+
+templ Download(url string) {
+	<div class="h-full w-full place-content-center text-center bg-[#181818e3] backdrop-blur-md">
+		<h1>Your download is starting...</h1>
+		<p>If the download does not start automatically, <a id="downloadLink" href={ templ.SafeURL(url) }>click here</a>.</p>
+	</div>
+	<script>
+		const downloadURL = new URL(window.location.href)
+		const ID = downloadURL.pathname.split("/").pop()
+	</script>
+}
