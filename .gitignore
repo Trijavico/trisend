@@ -1,4 +1,5 @@
 bin/
 keys/
+.env
 
 *_templ.go

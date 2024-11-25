@@ -1,0 +1,25 @@
+package views
+
+import "trisend/views/layouts"
+
+templ Login() {
+	@layouts.BaseLayout() {
+		<main class="grid grid-cols-[1fr_1fr] h-[100dvh]">
+			<aside class="border-[1px] border-white border-solid"></aside>
+			<form action="" class="place-self-center">
+				<h1 class="text-white px-12 text-5xl font-semibold text-center">Login</h1>
+				<a href="/auth/login?provider=github" class="block px-4 py-3 bg-[#222222] text-white">Login with Github</a>
+				<label for="email">
+					<span class="text-white">Email</span>
+					<input type="text" name="email" id="email" class="px-6 py-4 rounded-[1ex] block border-[3px] border-black border-solid"/>
+				</label>
+				<button class="mb-6 text-white bg-black">{ ">" }</button>
+				<label for="code" class="block">
+					<span class="text-white">Login code</span>
+					<input type="text" name="code" id="code" class="px-6 py-4 rounded-[1ex] block border-[3px] border-white border-solid"/>
+				</label>
+				<input type="submit" value="Continue with login code" class="text-white"/>
+			</form>
+		</main>
+	}
+}

@@ -1,7 +1,9 @@
 package views
 
+import "trisend/views/layouts"
+
 templ Home() {
-	@Layout() {
+	@layouts.Layout() {
 		<main id="main_homepage" class="grid auto-rows-min h-full overflow-hidden relative before:content-[''] before:-z-10 before:absolute before:block before:-inset-[90px] before:aspect-square before:justify-self-center">
 			<header class="flex justify-between px-6 pt-6">
 				<span id="header_logo" class="font-bold text-white text-4xl">Trisend</span>
