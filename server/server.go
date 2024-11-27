@@ -12,23 +12,23 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/gliderlabs/ssh"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/sessions"
+	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/github"
 	gossh "golang.org/x/crypto/ssh"
 )
 
-func NewServer(files embed.FS) *http.Server {
+func NewAuth() {
 	sessionKey := []byte(util.GetEnvStr("SESSION_SECRET", ""))
 	cookieStore := sessions.NewCookieStore(sessionKey)
-	cookieStore.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   3600 * 24, // 24 hours
-		Secure:   true,
-		HttpOnly: true,
-	}
-
 	gothic.Store = cookieStore
 
+	goth.UseProviders(github.New(util.GetEnvStr("CLIENT_ID", ""), util.GetEnvStr("CLIENT_SECRET", ""), ""))
+}
+
+func NewServer(files embed.FS) *http.Server {
 	router := http.NewServeMux()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.String() != "/" {
@@ -36,14 +36,23 @@ func NewServer(files embed.FS) *http.Server {
 			http.Error(w, message, http.StatusNotFound)
 			return
 		}
+
+		cookie, err := r.Cookie("session_token")
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			views.Home().Render(r.Context(), w)
+			return
+		}
+
+		fmt.Printf("COOKIE VALUE: %s\n", cookie.Value)
 		views.Home().Render(r.Context(), w)
 	})
+
 	router.Handle("/assets/", http.FileServer(http.FS(files)))
 
 	router.Handle("/login", templ.Handler(views.Login()))
 	router.HandleFunc("/auth/{action}", func(w http.ResponseWriter, r *http.Request) {
 		action := r.PathValue("action")
-		provider := r.PathValue("provider")
 
 		switch action {
 		case "login":
@@ -54,7 +63,31 @@ func NewServer(files embed.FS) *http.Server {
 			if err != nil {
 				return
 			}
-			fmt.Printf("username: %s provider: %s\n", user.Name, provider)
+
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+				"name":     user.Name,
+				"email":    user.Email,
+				"username": user.NickName,
+			})
+
+			tokenString, err := token.SignedString([]byte(util.GetEnvStr("JWT_SECRET", "TESTSecret")))
+			if err != nil {
+				fmt.Printf("ERROR: %s\n", err)
+				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+				return
+			}
+
+			cookie := &http.Cookie{
+				Name:     "session_token",
+				Value:    tokenString,
+				Path:     "/",
+				Expires:  time.Time{},
+				Secure:   true,
+				HttpOnly: true,
+				SameSite: http.SameSiteStrictMode,
+			}
+
+			http.SetCookie(w, cookie)
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		}
 	})

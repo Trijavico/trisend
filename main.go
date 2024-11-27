@@ -5,11 +5,8 @@ import (
 	"log"
 	"os"
 	"trisend/server"
-	"trisend/util"
 
 	"github.com/joho/godotenv"
-	"github.com/markbates/goth"
-	"github.com/markbates/goth/providers/github"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -19,10 +16,10 @@ var Files embed.FS
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("env file not found")
-		os.Exit(1)
+		log.Fatalf("error: %s\n", err)
 	}
-	goth.UseProviders(github.New(util.GetEnvStr("CLIENT_ID", ""), util.GetEnvStr("CLIENT_SECRET", ""), ""))
+
+	server.NewAuth()
 
 	keyBytes, err := os.ReadFile("./keys/host")
 	if err != nil {
