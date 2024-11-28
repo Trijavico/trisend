@@ -5,6 +5,9 @@ run: build
 build:
 	@go build -o ./bin/main main.go
 
+web:
+	@templ generate & tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/styles.css
+
 sshfile:
 	@ssh -p 2222 localhost < ./banner.txt
 
@@ -12,7 +15,7 @@ scpfile:
 	@scp -P 2222 ./banner.txt localhost:
 
 css:
-	@tailwindcss -i ./assets/css/input.css -o ./assets/css/styles.css --watch
+	@tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/styles.css --watch
 
 clean:
 	@ssh-keygen -f "/home/ajpz/.ssh/known_hosts" -R "[localhost]:2222"
