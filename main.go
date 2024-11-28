@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"log"
 	"os"
 	"trisend/server"
@@ -10,16 +9,11 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
-//go:embed "assets"
-var Files embed.FS
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("error: %s\n", err)
 	}
-
-	server.NewAuth()
 
 	keyBytes, err := os.ReadFile("./keys/host")
 	if err != nil {
@@ -38,7 +32,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	httpserver := server.NewServer(Files)
+	httpserver := server.NewServer()
 	sshserver := server.NewSSHServer(privateKey, string(bannerBytes))
 
 	log.Println("HTTP Server running...")
