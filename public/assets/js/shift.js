@@ -133,7 +133,7 @@ function checkBounds(x, y, radius) {
 }
 
 function createCanvas() {
-	container = document.querySelector('.canvas_container');
+	container = document.querySelector('.shift_container');
 	canvas = {
 		a: document.createElement('canvas'),
 		b: document.createElement('canvas')

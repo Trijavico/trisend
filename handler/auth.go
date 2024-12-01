@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"trisend/auth"
+	"trisend/mailer"
 
 	"github.com/markbates/goth/gothic"
 )
@@ -29,3 +31,15 @@ func HandleAuthentication(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 	}
 }
+
+func HandleLoginCode(w http.ResponseWriter, r *http.Request) {
+	emailer := mailer.NewMailer("Verfication code", "javier.penaperez08@gmail.com", "CODE: 323CdsF2#")
+	if err := emailer.Send(); err != nil {
+		fmt.Println(err)
+		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Sent code!!!")
+}
+
+func HandleVerification(w http.ResponseWriter, r *http.Request) {}

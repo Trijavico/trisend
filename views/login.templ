@@ -5,18 +5,20 @@ import "trisend/views/layouts"
 templ Login() {
 	@layouts.BaseLayout() {
 		<main class="grid grid-cols-[1fr_1fr] h-[100dvh]">
-			<aside class="border-[1px] border-white border-solid"></aside>
-			<form action="" class="place-self-center">
+			<aside class="h-full p-[20px]">
+				<div id="custom" class="shift_container relative h-full overflow-hidden rounded-[2ex] border-[4px] border-black border-solid before:content-[''] before:absolute before:block before:inset-0 before:bg-[rgba(0,0,0,0.4)]"></div>
+			</aside>
+			<form hx-post="/login-code" class="grid place-self-center gap-[25px]">
 				<h1 class="text-white px-12 text-5xl font-semibold text-center">Login</h1>
-				<a href="/auth/login?provider=github" class="block px-4 py-3 bg-[#222222] text-white">Login with Github</a>
+				<a href="/auth/login?provider=github" class="text-center block min-w-[300px] rounded-[5px] border-[1px] border-solid border-white px-4 py-3 bg-[#222222] text-white">Continue with Github</a>
 				<label for="email">
 					<span class="text-white">Email</span>
-					<input type="text" name="email" id="email" class="px-6 py-4 rounded-[1ex] block border-[3px] border-black border-solid"/>
+					<input type="text" name="email" id="email" class="w-full px-[0.5rem] py-[0.22rem] rounded-[1ex] block border-[3px] border-black border-solid"/>
 				</label>
-				<button class="mb-6 text-white bg-black">{ ">" }</button>
+				<button class="mb-6 text-white bg-black py-[0.5rem] mt-[10px]">Continue with email</button>
 				<label for="code" class="block">
 					<span class="text-white">Login code</span>
-					<input type="text" name="code" id="code" class="px-6 py-4 rounded-[1ex] block border-[3px] border-white border-solid"/>
+					<input type="text" name="code" id="code" class="w-full px-[0.5rem] py-[0.22rem] rounded-[1ex] block border-[3px] border-black border-solid"/>
 				</label>
 				<input type="submit" value="Continue with login code" class="text-white"/>
 			</form>

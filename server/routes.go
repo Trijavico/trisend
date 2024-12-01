@@ -23,11 +23,14 @@ func registerRoutes(mux *http.ServeMux) {
 
 	mux.Handle("/assets/", http.FileServer(http.FS(public.Files)))
 
-	// Web Pages
 	mux.Handle("/login", templ.Handler(views.Login()))
+	mux.HandleFunc("/login/send-code", handler.HandleLoginCode)
+	mux.HandleFunc("/login/verify-code", handler.HandleVerification)
+
 	mux.HandleFunc("/download/{id}", handler.HandleDownloadPage)
 
 	// REST Enpoints
 	mux.HandleFunc("/stream/{id}", handler.HandleTransferFiles)
 	mux.HandleFunc("/auth/{action}", handler.HandleAuthentication)
+
 }
