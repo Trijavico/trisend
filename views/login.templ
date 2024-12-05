@@ -4,24 +4,38 @@ import "trisend/views/layouts"
 
 templ Login() {
 	@layouts.BaseLayout() {
-		<main class="grid grid-cols-[1fr_1fr] h-[100dvh]">
-			<aside class="h-full p-[20px]">
-				<div id="custom" class="shift_container relative h-full overflow-hidden rounded-[2ex] border-[4px] border-black border-solid before:content-[''] before:absolute before:block before:inset-0 before:bg-[rgba(0,0,0,0.4)]"></div>
-			</aside>
-			<form hx-post="/login-code" class="grid place-self-center gap-[25px]">
-				<h1 class="text-white px-12 text-5xl font-semibold text-center">Login</h1>
-				<a href="/auth/login?provider=github" class="text-center block min-w-[300px] rounded-[5px] border-[1px] border-solid border-white px-4 py-3 bg-[#222222] text-white">Continue with Github</a>
-				<label for="email">
-					<span class="text-white">Email</span>
-					<input type="text" name="email" id="email" class="w-full px-[0.5rem] py-[0.22rem] rounded-[1ex] block border-[3px] border-black border-solid"/>
-				</label>
-				<button class="mb-6 text-white bg-black py-[0.5rem] mt-[10px]">Continue with email</button>
-				<label for="code" class="block">
-					<span class="text-white">Login code</span>
-					<input type="text" name="code" id="code" class="w-full px-[0.5rem] py-[0.22rem] rounded-[1ex] block border-[3px] border-black border-solid"/>
-				</label>
-				<input type="submit" value="Continue with login code" class="text-white"/>
+		<div class="min-h-screen relative bg-[#1C1D21] text-[#f2f2f2] flex justify-center items-center">
+			<form id="lighting" class="h-min translate-y-[-5%] translate-x-[-5%] isolate relative w-full max-w-[480px] rounded-3xl p-8 border-black border-[3px] border-solid">
+				/* Notion Logo */
+				<div class="flex items-center gap-2 mb-4">
+					<div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+						<svg viewBox="0 0 24 24" class="w-6 h-6 text-white" fill="currentColor">
+							<path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-2.986-4.577c-.56-.84-.793-1.4-.793-2.146V3.504c0-1.26.887-2.286 2.304-2.47z"></path>
+						</svg>
+					</div>
+					<span class="font-medium text-xl">Trisend</span>
+				</div>
+				<h1 class="text-[40px] font-bold text-center mb-8">Log in</h1>
+				/* Social Login Buttons */
+				<div class="space-y-4 mb-8">
+					<button variant="outline" class="w-full flex gap-2 items-center rounded-[1ex] justify-center h-12 bg-white hover:bg-gray-50 text-black border border-gray-300 text-base font-medium">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="icon icon-tabler icons-tabler-filled icon-tabler-brand-github"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5.315 2.1c.791 -.113 1.9 .145 3.333 .966l.272 .161l.16 .1l.397 -.083a13.3 13.3 0 0 1 4.59 -.08l.456 .08l.396 .083l.161 -.1c1.385 -.84 2.487 -1.17 3.322 -1.148l.164 .008l.147 .017l.076 .014l.05 .011l.144 .047a1 1 0 0 1 .53 .514a5.2 5.2 0 0 1 .397 2.91l-.047 .267l-.046 .196l.123 .163c.574 .795 .93 1.728 1.03 2.707l.023 .295l.007 .272c0 3.855 -1.659 5.883 -4.644 6.68l-.245 .061l-.132 .029l.014 .161l.008 .157l.004 .365l-.002 .213l-.003 3.834a1 1 0 0 1 -.883 .993l-.117 .007h-6a1 1 0 0 1 -.993 -.883l-.007 -.117v-.734c-1.818 .26 -3.03 -.424 -4.11 -1.878l-.535 -.766c-.28 -.396 -.455 -.579 -.589 -.644l-.048 -.019a1 1 0 0 1 .564 -1.918c.642 .188 1.074 .568 1.57 1.239l.538 .769c.76 1.079 1.36 1.459 2.609 1.191l.001 -.678l-.018 -.168a5.03 5.03 0 0 1 -.021 -.824l.017 -.185l.019 -.12l-.108 -.024c-2.976 -.71 -4.703 -2.573 -4.875 -6.139l-.01 -.31l-.004 -.292a5.6 5.6 0 0 1 .908 -3.051l.152 -.222l.122 -.163l-.045 -.196a5.2 5.2 0 0 1 .145 -2.642l.1 -.282l.106 -.253a1 1 0 0 1 .529 -.514l.144 -.047l.154 -.03z"></path></svg>
+						Continue with Github 
+					</button>
+				</div>
+				/* Email Section */
+				<div class="space-y-6">
+					<div id="target" class="grid gap-2 grid-cols-[1fr_auto] items-end">
+						<div>
+							<label class="text-sm text-gray-600 mb-1 block">Email</label>
+							<input name="email" type="email" value="user@gmail.com" class="relative shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full h-12 px-4 border-black border-solid border-[3px] rounded-[1ex] bg-transparent text-[rgba(255,255,255,0.7)]"/>
+						</div>
+						<button hx-post="/login/send-code" hx-swap="afterend" hx-target="#target" class="h-12 bg-green-600 rounded-[1ex] px-4 border-solid border-[3px] border-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.8),0_1px_0_0_rgba(255,255,255,0.5)]">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-send"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 14l11 -11"></path><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"></path></svg>
+						</button>
+					</div>
+				</div>
 			</form>
-		</main>
+		</div>
 	}
 }

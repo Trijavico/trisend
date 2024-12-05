@@ -29,7 +29,7 @@ func NewMailer(subject, receiverEmail, msg string) *mailer {
 
 func (mailer *mailer) Send() error {
 	senderPass := os.Getenv("GL_PASSWORD")
-	from := os.Getenv("STMP_USERNAME")
+	from := os.Getenv("SMTP_USERNAME")
 	to := []string{mailer.receiver}
 
 	if ok := isValidEmail(mailer.receiver); !ok {
