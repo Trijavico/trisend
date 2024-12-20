@@ -13,7 +13,7 @@ func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore
 	handler := http.NewServeMux()
 	wb.server.Handler = handler
 
-	handler.HandleFunc("/", handleIndex)
+	handler.HandleFunc("/", handleHome)
 	handler.Handle("/assets/", http.FileServer(http.FS(public.Files)))
 
 	handler.Handle("GET /login", templ.Handler(views.Login()))

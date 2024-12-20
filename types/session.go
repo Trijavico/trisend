@@ -17,3 +17,8 @@ type TransitSess struct {
 	ID    string
 	Email string
 }
+
+type CreatePubKey struct {
+	Name  string
+	Value string
+}
