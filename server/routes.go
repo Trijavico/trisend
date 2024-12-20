@@ -1,35 +1,39 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
-	"trisend/handler"
+	"trisend/db"
 	"trisend/public"
 	"trisend/views"
 
 	"github.com/a-h/templ"
 )
 
-func registerRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.String() != "/" {
-			message := fmt.Sprintf("url: %s", r.URL)
-			http.Error(w, message, http.StatusNotFound)
-			return
-		}
+func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore) {
+	handler := http.NewServeMux()
+	wb.server.Handler = handler
 
-		views.Home().Render(r.Context(), w)
-	})
+	handler.HandleFunc("/", handleIndex)
+	handler.Handle("/assets/", http.FileServer(http.FS(public.Files)))
 
-	mux.Handle("/assets/", http.FileServer(http.FS(public.Files)))
+	handler.Handle("GET /login", templ.Handler(views.Login()))
+	handler.HandleFunc("POST /login/send-code", handleAuthCode(sessStore))
+	handler.HandleFunc("POST /login/verify-code", handleVerification(sessStore))
+	handler.HandleFunc("GET /auth/{action}", handleOAuth)
 
-	mux.Handle("/login", templ.Handler(views.Login()))
-	mux.HandleFunc("POST /login/send-code", handler.HandleLoginCode)
-	mux.HandleFunc("/login/verify-code", handler.HandleVerification)
+	// app.Group(func(onboarding chi.Router) {
+	// 	onboarding.Use()
+	// 	onboarding.Use()
+	//
+	// 	onboarding.Get()
+	// 	onboarding.Post()
+	// 	onboarding.Get()
+	// })
 
-	mux.HandleFunc("/download/{id}", handler.HandleDownloadPage)
+	// TODO: userKeysView, C.R.U.D operations
+	// TODO: profileView C.R.U.D operations
+	// onboardingView
 
-	// REST Enpoints
-	mux.HandleFunc("/stream-data", handler.HandleTransferFiles)
-	mux.HandleFunc("/auth/{action}", handler.HandleAuthentication)
+	handler.HandleFunc("GET /download/{id}", handleDownloadPage) // TODO: protect
+	handler.HandleFunc("GET /stream-data", handleTransferFiles)  // TODO: protect
 }

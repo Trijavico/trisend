@@ -1,8 +1,11 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
+	"trisend/config"
+	"trisend/db"
 	"trisend/server"
 
 	"github.com/joho/godotenv"
@@ -12,39 +15,48 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("error: %s\n", err)
+		slog.Error(fmt.Sprintf("Error loading env variables: %s", err))
+		os.Exit(1)
 	}
+	config.LoadConfig()
 
 	keyBytes, err := os.ReadFile("./keys/host")
 	if err != nil {
-		log.Println("key not found")
+		slog.Error("key not found")
 		os.Exit(1)
 	}
 	privateKey, err := gossh.ParsePrivateKey(keyBytes)
 	if err != nil {
-		log.Println("error parsing key bytes")
+		slog.Error("error parsing key bytes")
 		os.Exit(1)
 	}
 
 	bannerBytes, err := os.ReadFile("banner.txt")
 	if err != nil {
-		log.Println("banner not found")
+		slog.Info("banner not found")
 		os.Exit(1)
 	}
 
-	httpserver := server.NewServer()
+	redisDB := db.NewRedisDB()
+	userStore := db.NewUserRedisStore(redisDB)
+	sessStore := db.NewRedisSessionStore(redisDB)
+
+	webserver := server.NewWebServer()
 	sshserver := server.NewSSHServer(privateKey, string(bannerBytes))
 
-	log.Println("HTTP Server running...")
-	log.Println("SSH Server running...")
+	webserver.AddRoutes(userStore, sessStore)
 
 	go func() {
+		slog.Info("SSH Server running...")
 		if err := sshserver.ListenAndServe(); err != nil {
-			log.Fatalf("SSH server failed %v", err)
+			slog.Error(fmt.Sprintf("SSH server failed: %s", err))
+			os.Exit(1)
 		}
 	}()
 
-	if err := httpserver.ListenAndServe(); err != nil {
-		log.Fatalf("HTTP server failed %v", err)
+	slog.Info("HTTP Server running...")
+	if err := webserver.ListenAndServe(); err != nil {
+		slog.Error(fmt.Sprintf("HTTP server failed: %s", err))
+		os.Exit(1)
 	}
 }

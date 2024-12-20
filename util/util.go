@@ -1,21 +1,17 @@
 package util
 
 import (
-	"math/rand"
+	"crypto/rand"
+	"encoding/base64"
 	"os"
 	"strconv"
-	"time"
 )
 
-var fastRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-var charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+func GetRandomID(size int) string {
+	b := make([]byte, size)
+	rand.Read(b)
 
-func GetRandomID() string {
-	b := make([]byte, 10)
-	for i := range b {
-		b[i] = charset[fastRand.Intn(len(charset))]
-	}
-	return string(b)
+	return base64.URLEncoding.EncodeToString(b)
 }
 
 func GetEnvStr(name string, callback string) string {

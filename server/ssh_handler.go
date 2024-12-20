@@ -1,4 +1,4 @@
-package handler
+package server
 
 import (
 	"archive/zip"
@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/sftp"
 )
 
-func HandleSSH(session ssh.Session) {
-	id := util.GetRandomID()
+func handleSSH(session ssh.Session) {
+	id := util.GetRandomID(10)
 	filename := filepath.Base(session.RawCommand())
 	noExtName := filename[:len(filename)-len(filepath.Ext(filename))]
 	if noExtName == "" {
@@ -46,8 +46,8 @@ func HandleSSH(session ssh.Session) {
 	close(stream.Done)
 }
 
-func HandleSFTP(session ssh.Session) {
-	ID := util.GetRandomID()
+func handleSFTP(session ssh.Session) {
+	ID := util.GetRandomID(10)
 	streamChan := make(chan tunnel.Stream)
 	tunnel.SetStream(ID, streamChan)
 	defer close(streamChan)

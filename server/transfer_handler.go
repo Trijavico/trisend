@@ -1,4 +1,4 @@
-package handler
+package server
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"trisend/views"
 )
 
-func HandleDownloadPage(w http.ResponseWriter, r *http.Request) {
+func handleDownloadPage(w http.ResponseWriter, r *http.Request) {
 	fullURL := fmt.Sprintf("%s/stream/%s?zip=%s",
 		r.URL.Hostname(),
 		r.PathValue("id"),
@@ -16,7 +16,7 @@ func HandleDownloadPage(w http.ResponseWriter, r *http.Request) {
 	views.Download(fullURL).Render(r.Context(), w)
 }
 
-func HandleTransferFiles(w http.ResponseWriter, r *http.Request) {
+func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	zipParam := r.URL.Query().Get("zip")
 

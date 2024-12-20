@@ -1,8 +1,9 @@
 package auth
 
 import (
-	"net/http"
-	"trisend/util"
+	"errors"
+	"fmt"
+	"trisend/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/sessions"
@@ -12,33 +13,42 @@ import (
 )
 
 func SetupOAuth() {
-	sessionKey := []byte(util.GetEnvStr("SESSION_SECRET", ""))
-	cookieStore := sessions.NewCookieStore(sessionKey)
+	cookieStore := sessions.NewCookieStore([]byte(config.SESSION_SECRET))
 	gothic.Store = cookieStore
 
-	clientSecret := util.GetEnvStr("CLIENT_SECRET", "")
-	clientID := util.GetEnvStr("CLIENT_ID", "")
-	goth.UseProviders(github.New(clientID, clientSecret, ""))
+	goth.UseProviders(github.New(config.CLIENT_ID, config.CLIENT_SECRET, ""))
 }
 
-func CreateSessionCookie(w http.ResponseWriter, claims jwt.MapClaims) error {
+func CreateToken(claims jwt.MapClaims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	secret := util.GetEnvStr("JWT_SECRET", "")
-	tokenString, err := token.SignedString([]byte(secret))
+	tokenString, err := token.SignedString([]byte(config.JWT_SECRET))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	cookie := &http.Cookie{
-		Name:     "auth",
-		Value:    tokenString,
-		Path:     "/",
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	}
-	http.SetCookie(w, cookie)
+	return tokenString, nil
+}
 
-	return nil
+func ParseToken(tokenString string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(config.JWT_SECRET), nil
+	})
+
+	if err != nil {
+		return nil, errors.New("unauthorized")
+	}
+	if !token.Valid {
+		return nil, errors.New("unauthorized")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("unauthorized")
+	}
+
+	return claims, nil
 }
