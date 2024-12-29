@@ -10,7 +10,7 @@ import (
 
 func WithAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(server.Session_key)
+		cookie, err := r.Cookie(server.SESSION_KEY)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusInternalServerError)
 			return
@@ -22,7 +22,7 @@ func WithAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		var session types.User
+		var session types.Session
 		session.ID = claims["id"].(string)
 		session.Email = claims["email"].(string)
 		session.Username = claims["username"].(string)

@@ -23,6 +23,7 @@ templ Home(user *types.Session) {
 				<header>
 					{ user.Username }
 					{ user.Email }
+					<img src={ user.Pfp } alt=""/>
 				</header>
 			}
 			<h1 class="pt-40 justify-self-center font-bold leading-normal text-white text-7xl">Easy and <span>Secure</span> <br/> Transfer for files</h1>

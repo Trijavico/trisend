@@ -2,55 +2,74 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 	"trisend/auth"
 	"trisend/config"
 	"trisend/db"
 	"trisend/mailer"
+	"trisend/types"
 	"trisend/util"
 	"trisend/views"
 
 	"github.com/markbates/goth/gothic"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
-	Session_key = "sess"
-	Auth_key    = "auth"
+	SESSION_KEY = "sess"
+	AUTH_KEY    = "auth"
 )
 
-func handleOAuth(w http.ResponseWriter, r *http.Request) {
-	switch r.PathValue("action") {
-	case "login":
-		gothic.BeginAuthHandler(w, r)
+func handleOAuth(store db.UserStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.PathValue("action") {
+		case "login":
+			gothic.BeginAuthHandler(w, r)
 
-	case "callback":
-		user, err := gothic.CompleteUserAuth(w, r)
-		if err != nil {
-			return
-		}
-		claims := map[string]interface{}{
-			"email":    user.Email,
-			"username": user.NickName,
-		}
+		case "callback":
+			user, err := gothic.CompleteUserAuth(w, r)
+			if err != nil {
+				return
+			}
 
-		token, err := auth.CreateToken(claims)
-		if err != nil {
-			http.Error(w, "an error ocurred", http.StatusInternalServerError)
-			return
-		}
+			userData, err := store.GetByEmail(r.Context(), user.Email)
+			if err == redis.Nil || err != nil {
+				slog.Error("An error occurred", "error", err)
+				http.Error(w, "an error ocurred", http.StatusInternalServerError)
+				return
+			}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     Session_key,
-			Value:    token,
-			Path:     "/",
-			Secure:   config.IsAppEnvProd(),
-			HttpOnly: true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   int(time.Hour * 5),
-		})
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			claims := map[string]interface{}{
+				"id":       userData.ID,
+				"email":    userData.Email,
+				"username": userData.Username,
+				"pfp":      userData.Pfp,
+			}
+
+			token, err := auth.CreateToken(claims)
+			if err != nil {
+				http.Error(w, "an error ocurred", http.StatusInternalServerError)
+				return
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:     SESSION_KEY,
+				Value:    token,
+				Path:     "/",
+				Secure:   config.IsAppEnvProd(),
+				HttpOnly: true,
+				SameSite: http.SameSiteStrictMode,
+				MaxAge:   int(time.Hour * 5),
+			})
+			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		}
 	}
 }
 
@@ -83,7 +102,7 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:     Auth_key,
+			Name:     AUTH_KEY,
 			Value:    token,
 			Path:     "/",
 			Secure:   config.IsAppEnvProd(),
@@ -105,11 +124,11 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 	}
 }
 
-func handleVerification(store db.SessionStore) http.HandlerFunc {
+func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(Auth_key)
+		cookie, err := r.Cookie(AUTH_KEY)
 		if err != nil {
-			slog.Error("Failed to sent message", ":", err)
+			slog.Error("Failed to sent message", "error", err)
 			http.Error(w, "no code provided", http.StatusInternalServerError)
 			return
 		}
@@ -122,17 +141,12 @@ func handleVerification(store db.SessionStore) http.HandlerFunc {
 		}
 
 		key := claims["sub"].(string)
+		email := claims["email"].(string)
+		code := r.FormValue("code")
 
-		var code string
-		if code = r.FormValue("code"); code == "" {
-			slog.Error("no code provided")
-			http.Error(w, "no code provided", http.StatusInternalServerError)
-			return
-		}
-
-		value, err := store.GetTransitSessByID(r.Context(), key)
+		value, err := sessStore.GetTransitSessByID(r.Context(), key)
 		if err != nil {
-			slog.Error("failed to sent message", ":", err)
+			slog.Error("failed to sent message", "error", err)
 			http.Error(w, "failed to sent message", http.StatusInternalServerError)
 			return
 		}
@@ -143,7 +157,149 @@ func handleVerification(store db.SessionStore) http.HandlerFunc {
 			return
 		}
 
+		user, err := usrStore.GetByEmail(r.Context(), email)
+		if err == redis.Nil {
+			w.Header().Set("HX-Redirect", "/login/create")
+			return
+		} else if err != nil {
+			slog.Error("Failed to continue with login", "error", err)
+			http.Error(w, "failed to continue with login", http.StatusInternalServerError)
+			return
+		}
+
+		mappedUser := map[string]interface{}{
+			"id":       user.ID,
+			"email":    user.Email,
+			"username": user.Username,
+			"pfp":      user.Pfp,
+		}
+
+		token, err := auth.CreateToken(mappedUser)
+		if err != nil {
+			slog.Error("Failed to continue with login", "error", err)
+			http.Error(w, "failed to continue with login", http.StatusInternalServerError)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     SESSION_KEY,
+			Value:    token,
+			Path:     "/",
+			Secure:   config.IsAppEnvProd(),
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   int(time.Hour * 5),
+		})
+
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(AUTH_KEY)
+		if err != nil {
+			slog.Error("Failed cookie", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		claims, err := auth.ParseToken(cookie.Value)
+		if err != nil {
+			slog.Error("Failed parsing JWT", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		limit := 5 << 20
+		if err := r.ParseMultipartForm(int64(limit)); err != nil {
+			slog.Error("Failed parsing Multipart Form", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+		defer r.MultipartForm.RemoveAll()
+
+		email := claims["email"].(string)
+		username := r.FormValue("username")
+
+		file, header, err := r.FormFile("image")
+		if err != nil {
+			slog.Error("Failed parsing JWT", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		path, err := os.Getwd()
+		if err != nil {
+			slog.Error("Faile creating dir", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		path = filepath.Join(path, "media")
+
+		var once sync.Once
+		once.Do(func() {
+			if err := os.MkdirAll(path, os.ModePerm); err != nil {
+				http.Error(w, "an error occurred", http.StatusInternalServerError)
+				return
+			}
+		})
+
+		parsedFilename := strings.ReplaceAll(header.Filename, " ", "")
+		filename := util.GetRandomID(12) + parsedFilename
+		createdFile, err := os.Create(filepath.Join(path, filename))
+		if err != nil {
+			slog.Error("Failed creating file", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+		defer createdFile.Close()
+
+		_, err = io.Copy(createdFile, file)
+		if err != nil {
+			slog.Error("Failed saving file", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		pfp := "/media/" + filename
+		user := types.CreateUser{
+			Email:    email,
+			Username: username,
+			Pfp:      pfp,
+		}
+
+		userSession, err := usrStore.CreateUser(r.Context(), user)
+		if err != nil {
+			slog.Error("Failed parsing JWT", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		token, err := auth.CreateToken(map[string]interface{}{
+			"id":       userSession.ID,
+			"email":    email,
+			"username": username,
+			"pfp":      pfp,
+		})
+		if err != nil {
+			slog.Error("Failed parsing JWT", "error", err)
+			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     SESSION_KEY,
+			Value:    token,
+			Path:     "/",
+			Secure:   config.IsAppEnvProd(),
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   int(time.Hour * 5),
+		})
+
+		w.Header().Set("HX-Redirect", "/")
 	}
 }

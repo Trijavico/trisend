@@ -13,6 +13,7 @@ type UserStore interface {
 	CreateUser(context.Context, types.CreateUser) (*types.Session, error)
 	UpdateUser(context.Context, types.CreateUser) (*types.Session, error)
 	DeleteUser(context.Context, string) error
+	GetByEmail(context.Context, string) (*types.Session, error)
 
 	AddSSHKey(ctx context.Context, userID string, sshKey string) error
 	DeleteSSHKey(ctx context.Context, userID string, sshKey string) error
@@ -32,6 +33,7 @@ func NewUserRedisStore(db *redis.Client) UserStore {
 func (store *redisStore) CreateUser(ctx context.Context, user types.CreateUser) (*types.Session, error) {
 	userID := uuid.NewString()
 	key := fmt.Sprintf("user:%s", userID)
+	pipe := store.db.TxPipeline()
 
 	data := map[string]interface{}{
 		"email":    user.Email,
@@ -39,7 +41,10 @@ func (store *redisStore) CreateUser(ctx context.Context, user types.CreateUser) 
 		"pfp":      user.Pfp,
 	}
 
-	err := store.db.HSet(ctx, key, data).Err()
+	pipe.HSet(ctx, key, data).Err()
+	pipe.Set(ctx, fmt.Sprintf("email:%s", user.Email), userID, 0)
+
+	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +93,34 @@ func (store *redisStore) DeleteUser(ctx context.Context, userID string) error {
 	}
 
 	return nil
+}
+
+func (store *redisStore) GetByEmail(ctx context.Context, email string) (*types.Session, error) {
+	key := fmt.Sprintf("email:%s", email)
+
+	userKey, err := store.db.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, redis.Nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	userData, err := store.db.HGetAll(ctx, userKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	if len(userData) == 0 {
+		return nil, redis.Nil
+	}
+
+	user := &types.Session{
+		ID:       userKey[len("user:"):],
+		Email:    userData["email"],
+		Username: userData["username"],
+		Pfp:      userData["pfp"],
+	}
+
+	return user, nil
 }
 
 func (store *redisStore) AddSSHKey(ctx context.Context, userID string, sshKey string) error {
