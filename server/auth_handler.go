@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 	"trisend/auth"
-	"trisend/config"
 	"trisend/db"
 	"trisend/mailer"
 	"trisend/types"
@@ -23,8 +22,8 @@ import (
 )
 
 const (
-	SESSION_KEY = "sess"
-	AUTH_KEY    = "auth"
+	SESSION_COOKIE = "sess"
+	AUTH_COOKIE    = "auth"
 )
 
 func handleOAuth(store db.UserStore) http.HandlerFunc {
@@ -59,15 +58,7 @@ func handleOAuth(store db.UserStore) http.HandlerFunc {
 				return
 			}
 
-			http.SetCookie(w, &http.Cookie{
-				Name:     SESSION_KEY,
-				Value:    token,
-				Path:     "/",
-				Secure:   config.IsAppEnvProd(),
-				HttpOnly: true,
-				SameSite: http.SameSiteStrictMode,
-				MaxAge:   int(time.Hour * 5),
-			})
+			http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		}
 	}
@@ -101,16 +92,6 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     AUTH_KEY,
-			Value:    token,
-			Path:     "/",
-			Secure:   config.IsAppEnvProd(),
-			HttpOnly: true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   int(time.Minute * 5),
-		})
-
 		body := fmt.Sprintf("CODE: %s", code)
 		emailer := mailer.NewMailer("Verfication code", email, body)
 
@@ -120,13 +101,14 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 			return
 		}
 
+		http.SetCookie(w, auth.CreateCookie(AUTH_COOKIE, token, int(time.Minute*5)))
 		views.ContinueWithCode().Render(r.Context(), w)
 	}
 }
 
 func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(AUTH_KEY)
+		cookie, err := r.Cookie(AUTH_COOKIE)
 		if err != nil {
 			slog.Error("Failed to sent message", "error", err)
 			http.Error(w, "no code provided", http.StatusInternalServerError)
@@ -181,16 +163,7 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     SESSION_KEY,
-			Value:    token,
-			Path:     "/",
-			Secure:   config.IsAppEnvProd(),
-			HttpOnly: true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   int(time.Hour * 5),
-		})
-
+		http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)
 	}
@@ -198,7 +171,7 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 
 func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(AUTH_KEY)
+		cookie, err := r.Cookie(AUTH_COOKIE)
 		if err != nil {
 			slog.Error("Failed cookie", "error", err)
 			http.Error(w, "an error occurred", http.StatusInternalServerError)
@@ -212,8 +185,8 @@ func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 			return
 		}
 
-		limit := 5 << 20
-		if err := r.ParseMultipartForm(int64(limit)); err != nil {
+		limit := int64(5 << 20) // 5MB
+		if err := r.ParseMultipartForm(limit); err != nil {
 			slog.Error("Failed parsing Multipart Form", "error", err)
 			http.Error(w, "an error occurred", http.StatusInternalServerError)
 			return
@@ -290,16 +263,7 @@ func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     SESSION_KEY,
-			Value:    token,
-			Path:     "/",
-			Secure:   config.IsAppEnvProd(),
-			HttpOnly: true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   int(time.Hour * 5),
-		})
-
+		http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
 		w.Header().Set("HX-Redirect", "/")
 	}
 }

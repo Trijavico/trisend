@@ -1,10 +1,17 @@
 package types
 
+import "strings"
+
 type Session struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	Username string `json:"username"`
 	Pfp      string `json:"pfp"`
+}
+
+func (sess *Session) ShortEmail() string {
+	index := strings.Index(sess.Email, "@")
+	return sess.Email[:index]
 }
 
 type CreateUser struct {
@@ -18,7 +25,8 @@ type TransitSess struct {
 	Email string
 }
 
-type CreatePubKey struct {
-	Name  string
-	Value string
+type SSHKey struct {
+	ID          string
+	Title       string
+	Fingerprint string
 }

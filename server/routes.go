@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"trisend/db"
 	"trisend/public"
+	"trisend/server/middleware"
 	"trisend/views"
 
 	"github.com/a-h/templ"
@@ -19,10 +20,15 @@ func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore
 
 	handler.Handle("GET /login", templ.Handler(views.Login()))
 	handler.Handle("GET /login/create", templ.Handler(views.FillProfile()))
-	handler.HandleFunc("POST /login/create", handleLoginCreate(userStore))
-	handler.HandleFunc("POST /login/send-code", handleAuthCode(sessStore))
-	handler.HandleFunc("POST /login/verify-code", handleVerification(sessStore, userStore))
-	handler.HandleFunc("GET /auth/{action}", handleOAuth(userStore))
+	handler.Handle("POST /login/create", handleLoginCreate(userStore))
+	handler.Handle("POST /login/send-code", handleAuthCode(sessStore))
+	handler.Handle("POST /login/verify-code", handleVerification(sessStore, userStore))
+	handler.Handle("GET /auth/{action}", handleOAuth(userStore))
+
+	handler.Handle("GET /keys", middleware.WithAuth(handleKeysView(userStore)))
+	handler.Handle("POST /keys", middleware.WithAuth(handleCreateKey(userStore)))
+	handler.Handle("DELETE /keys/{id}", middleware.WithAuth(handleDeleteKey(userStore)))
+	handler.Handle("GET /keys/create", middleware.WithAuth(handleCreateKeyView()))
 
 	// app.Group(func(onboarding chi.Router) {
 	// 	onboarding.Use()

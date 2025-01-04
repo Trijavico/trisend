@@ -1,0 +1,40 @@
+package components
+
+import "trisend/types"
+
+templ ProfileButton(user *types.Session) {
+	<div class="profile flex items-center gap-4  relative">
+		<button class="rounded-[1ex] p-[8px] cursor-pointer text-left hover:bg-[#ffffff12]">
+			<div class="flex items-center gap-2">
+				<div class="profile_img w-9">
+					<img class="block max-w-full aspect-square rounded-[50%] object-cover" src={ user.Pfp } alt=""/>
+				</div>
+				<div class="details text-white text-[14px] leading-none">
+					<p class="text-[#ffffffd9]"><strong>{ user.Username }</strong></p>
+					<p class="text-[#ffffffa1]">{ "@" }{ user.ShortEmail() }</p>
+				</div>
+				<div class="ml-[5px]">
+					<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#ffffffd9"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path></svg>
+				</div>
+			</div>
+		</button>
+		<div id="dropdown" class="dropdown m-0 cursor-default p-1 absolute left-0 text-[#ffffffd9] -bottom-[112px] min-w-60 rounded bg-[#1C1D21] shadow-[1px_1px_10px_rgba(0,0,0,1)]">
+			<header class="text-sm font-semibold px-2 py-1.5 rounded">My Account</header>
+			<div class="h-px my-1 -mx-1 bg-[#ffffff38]"></div>
+			<ul class="w-full">
+				<li class="select-none">
+					<a class="flex items-center px-2 py-1.5 text-sm rounded hover:bg-[#ffffff12]" href="/keys">
+						<svg class="mr-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffffd9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-key"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1 -4.069 0l-.301 -.301l-6.558 6.558a2 2 0 0 1 -1.239 .578l-.175 .008h-1.172a1 1 0 0 1 -.993 -.883l-.007 -.117v-1.172a2 2 0 0 1 .467 -1.284l.119 -.13l.414 -.414h2v-2h2v-2l2.144 -2.144l-.301 -.301a2.877 2.877 0 0 1 0 -4.069l2.643 -2.643a2.877 2.877 0 0 1 4.069 0z"></path><path d="M15 9h.01"></path></svg>
+						My keys
+					</a>
+				</li>
+				<li>
+					<button class="w-full flex px-2 py-1.5 text-sm rounded hover:bg-[#ffffff12] items-center">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffffd9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+						Log out
+					</button>
+				</li>
+			</ul>
+		</div>
+	</div>
+}

@@ -16,7 +16,7 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := r.Cookie(SESSION_KEY)
+	cookie, err := r.Cookie(SESSION_COOKIE)
 	if err != nil {
 		views.Home(nil).Render(r.Context(), w)
 		return

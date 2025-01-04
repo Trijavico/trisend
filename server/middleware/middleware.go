@@ -4,13 +4,12 @@ import (
 	"context"
 	"net/http"
 	"trisend/auth"
-	"trisend/server"
 	"trisend/types"
 )
 
 func WithAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(server.SESSION_KEY)
+		cookie, err := r.Cookie("sess")
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusInternalServerError)
 			return
@@ -22,15 +21,16 @@ func WithAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		var session types.Session
-		session.ID = claims["id"].(string)
-		session.Email = claims["email"].(string)
-		session.Username = claims["username"].(string)
-		session.Pfp = claims["pfp"].(string)
+		session := &types.Session{
+			ID:       claims["id"].(string),
+			Email:    claims["email"].(string),
+			Username: claims["username"].(string),
+			Pfp:      claims["pfp"].(string),
+		}
 
 		ctx := r.Context()
-		ctxWithUser := context.WithValue(ctx, "session", session)
-		r.WithContext(ctxWithUser)
+		ctxWithUser := context.WithValue(ctx, "sess", session)
+		r = r.WithContext(ctxWithUser)
 
 		next(w, r)
 	}

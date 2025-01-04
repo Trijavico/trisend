@@ -106,3 +106,15 @@ body {
 .auth_btns a:hover button {
 	box-shadow: inset 0 0 20px rgba(0, 0, 0, .15);
 }
+
+#dropdown {
+	display: none;
+}
+
+.profile:hover #dropdown {
+	display: block;
+}
+
+[popover]::backdrop {
+	background: rgba(0, 0, 0, 0.5);
+}

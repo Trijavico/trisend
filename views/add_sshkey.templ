@@ -1,0 +1,36 @@
+package views
+
+import "trisend/views/layouts"
+
+templ SSHKeyForm(ProfileButton templ.Component) {
+	@layouts.BaseLayout() {
+		<header class="flex items-center justify-between pl-6 pr-14 pt-6 relative before:contet-[''] before:block before:absolute before:-bottom-[25px] before:left-0 before:right-0 before:h-[4px] before:bg-black before:shadow-[0_1px_0_0_#ffffff29] before:-z-10">
+			<span id="header_logo" class="font-bold text-white text-4xl">
+				<a href="/">Trisend</a>
+			</span>
+			@ProfileButton
+		</header>
+		<div id="section" class="pt-11 px-9">
+			<form hx-post="/keys" class="flex flex-col items-center">
+				<header class="flex items-end justify-between mb-9 pb-3 border-b-[#3d444d] border-b-[1px] border-b-solid">
+					<h2 class="text-[30px] text-[#ffffffba]">Add new SSH Key</h2>
+				</header>
+				<div class="container text-[#ffffffba] max-w-[900px]">
+					<label class="text-[20px]" for="title">Title</label>
+					<input type="text" name="title" id="title" class="relative mb-4 outline-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full h-12 px-4 border-black border-solid border-[3px] rounded-[1ex] bg-transparent text-[rgba(255,255,255,0.7)]"/>
+					<label class="text-[20px]" for="key">Key</label>
+					<textarea name="key" id="key" class="relative min-h-[280px] mb-4 outline-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full h-12 border-black border-solid border-[3px] rounded-[1ex] bg-transparent text-[rgba(255,255,255,0.7)]"></textarea>
+					<button class="rounded-[5px] grid items-center text-white px-[12px] min-h-[30px] font-semibold bg-[#238636]">Add SSH key</button>
+				</div>
+			</form>
+		</div>
+		<script>
+			let $textarea = document.querySelector("textarea")
+			$textarea.addEventListener("paste", function(e) {
+				const pastedText = e.clipboardData.getData("text");
+				const cleanText = pastedText.replace(/\n/g, '');
+				e.clipboardData.setData("text", cleanText)
+			})
+		</script>
+	}
+}

@@ -2,30 +2,27 @@ package views
 
 import (
 	"trisend/types"
+	"trisend/views/components"
 	"trisend/views/layouts"
 )
 
 templ Home(user *types.Session) {
 	@layouts.Layout() {
 		<main id="main_homepage" class="grid auto-rows-min h-full overflow-hidden relative before:content-[''] before:-z-10 before:absolute before:block before:-inset-[90px] before:aspect-square before:justify-self-center">
-			if user == nil {
-				<header class="flex justify-between px-6 pt-6">
-					<span id="header_logo" class="font-bold text-white text-4xl">Trisend</span>
-					<div class="auth_btns grid grid-flow-col auto-cols-[1fr] gap-4">
-						<a href="/login">
-							<button class="text-[#00FEEF] font-medium rounded-[1ex] px-8 py-4 border-black border-solid border-[3px] relative before:content-[''] before:block before:absolute before:inset-0 before:-z-10 after:content-[''] after:block after:absolute after:inset-0 after:-z-10">
-								Get Started
-							</button>
-						</a>
-					</div>
-				</header>
-			} else {
-				<header>
-					{ user.Username }
-					{ user.Email }
-					<img src={ user.Pfp } alt=""/>
-				</header>
-			}
+			<header class="flex items-center justify-between pl-6 pr-14 pt-6 relative before:contet-[''] before:block before:absolute before:-bottom-[25px] before:left-0 before:right-0 before:h-[4px] before:bg-black before:shadow-[0_1px_0_0_#ffffff29] before:-z-10">
+				<span id="header_logo" class="font-bold text-white text-4xl">
+					<a href="/">Trisend</a>
+				</span>
+				if user == nil {
+					<a href="/login">
+						<button class="text-[#00FEEF] font-medium rounded-[1ex] px-8 py-4 border-black border-solid border-[3px] relative before:content-[''] before:block before:absolute before:inset-0 before:-z-10 after:content-[''] after:block after:absolute after:inset-0 after:-z-10">
+							Get Started
+						</button>
+					</a>
+				} else {
+					@components.ProfileButton(user)
+				}
+			</header>
 			<h1 class="pt-40 justify-self-center font-bold leading-normal text-white text-7xl">Easy and <span>Secure</span> <br/> Transfer for files</h1>
 			<ul class="commands grid grid-cols-[1fr_1fr] gap-8 pt-12 justify-self-center items-end">
 				<li>ssh trisend.dev example.txt { "<" } example.txt</li>

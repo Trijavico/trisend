@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"trisend/config"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,6 +18,17 @@ func SetupOAuth() {
 	gothic.Store = cookieStore
 
 	goth.UseProviders(github.New(config.CLIENT_ID, config.CLIENT_SECRET, ""))
+}
+
+func CreateCookie(name, value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		Secure:   config.IsAppEnvProd(),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   maxAge,
+	}
 }
 
 func CreateToken(claims jwt.MapClaims) (string, error) {
