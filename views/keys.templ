@@ -59,6 +59,7 @@ templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 			document.addEventListener('DOMContentLoaded', () => {
 				const $modalButton = document.querySelector('#modal #submit');
 				document.addEventListener('htmx:confirm', function(e){
+					if (!e.detail.target.hasAttribute('hx-confirm')) return
 					e.preventDefault();
 					pendingReq = e.detail;
 				})
