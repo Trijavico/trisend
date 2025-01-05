@@ -25,10 +25,23 @@ func CreateCookie(name, value string, maxAge int) *http.Cookie {
 		Name:     name,
 		Value:    value,
 		Path:     "/",
+		HttpOnly: true,
 		Secure:   config.IsAppEnvProd(),
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   maxAge,
 	}
+}
+
+func DeleteCookie(w http.ResponseWriter, cookieName string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   config.IsAppEnvProd(),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
 }
 
 func CreateToken(claims jwt.MapClaims) (string, error) {

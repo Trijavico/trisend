@@ -62,15 +62,13 @@ func handleDeleteKey(usrStore db.UserStore) http.HandlerFunc {
 		user := r.Context().Value(SESSION_COOKIE).(*types.Session)
 		sshID := r.PathValue("id")
 
-		fmt.Println("HIT!!!:", sshID)
-
 		err := usrStore.DeleteSSHKey(r.Context(), user.ID, sshID)
 		if err != nil {
 			http.Error(w, "an error occurred", http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("HX-Redirect", "/keys")
+		w.Header().Set("HX-Refresh", "true")
 		w.WriteHeader(http.StatusOK)
 	}
 }

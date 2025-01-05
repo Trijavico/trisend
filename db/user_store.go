@@ -43,7 +43,7 @@ func (store *redisStore) CreateUser(ctx context.Context, user types.CreateUser) 
 	}
 
 	pipe.HSet(ctx, key, data).Err()
-	pipe.Set(ctx, fmt.Sprintf("email:%s", user.Email), userID, 0)
+	pipe.SAdd(ctx, fmt.Sprintf("email:%s", user.Email), userID)
 
 	_, err := pipe.Exec(ctx)
 	if err != nil {
@@ -99,14 +99,15 @@ func (store *redisStore) DeleteUser(ctx context.Context, userID string) error {
 func (store *redisStore) GetByEmail(ctx context.Context, email string) (*types.Session, error) {
 	key := fmt.Sprintf("email:%s", email)
 
-	userKey, err := store.db.Get(ctx, key).Result()
-	if err == redis.Nil {
+	userKey, err := store.db.SMembers(ctx, key).Result()
+	if err == redis.Nil || len(userKey) == 0 {
 		return nil, redis.Nil
 	} else if err != nil {
 		return nil, err
 	}
 
-	userData, err := store.db.HGetAll(ctx, userKey).Result()
+	key = fmt.Sprintf("user:%s", userKey[0])
+	userData, err := store.db.HGetAll(ctx, key).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (store *redisStore) GetByEmail(ctx context.Context, email string) (*types.S
 	}
 
 	user := &types.Session{
-		ID:       userKey[len("user:"):],
+		ID:       userKey[0],
 		Email:    userData["email"],
 		Username: userData["username"],
 		Pfp:      userData["pfp"],

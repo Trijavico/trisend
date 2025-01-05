@@ -64,6 +64,14 @@ func handleOAuth(store db.UserStore) http.HandlerFunc {
 	}
 }
 
+func handleLogout() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		auth.DeleteCookie(w, SESSION_COOKIE)
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var email string
@@ -163,6 +171,7 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 			return
 		}
 
+		auth.DeleteCookie(w, AUTH_COOKIE)
 		http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)

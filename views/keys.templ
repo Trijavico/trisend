@@ -29,7 +29,7 @@ templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 							<p><strong class="text-[25px]">{ key.Title }</strong></p>
 							<code class="text-[15px]">SHA256:{ key.Fingerprint }</code>
 						</div>
-						<button popovertarget="modal" class="hover:bg-[#fa5e55] hover:text-[#ffffffba] max-w-min text-[16px] ml-4 px-[5px] rounded-[5px] text-[#fa5e55] bg-[#212830] border-[1px] border-[#5c5959] border-solid">Delete</button>
+						<button hx-delete={ "/keys/" + key.ID } hx-confirm popovertarget="modal" class="hover:bg-[#fa6e55] hover:text-[#ffffffba] max-w-min text-[16px] ml-4 px-[5px] rounded-[5px] text-[#fa5e55] bg-[#212830] border-[1px] border-[#5c5959] border-solid">Delete</button>
 					</div>
 				}
 			</div>
@@ -55,17 +55,19 @@ templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 			</form>
 		</div>
 		<script>
+			let pendingReq = null;
 			document.addEventListener('DOMContentLoaded', () => {
-				const $modal = document.querySelector('#modal #submit')
-
-				document.querySelectorAll('.keys .key_card button').forEach(button => {
-					button.addEventListener('click', function(e) {
-						const keyCard = button.closest('.key_card');
-						const keyId = keyCard.dataset.keyid;
-						$modal.setAttribute("hx-delete", `/keys/${keyId}`)
-					})
+				const $modalButton = document.querySelector('#modal #submit');
+				document.addEventListener('htmx:confirm', function(e){
+					e.preventDefault();
+					pendingReq = e.detail;
 				})
-			})
+				$modalButton.addEventListener('click', function(e){
+					if (pendingReq) {
+						pendingReq.issueRequest();
+						pendingReq = null;
+					}
+				})
 		</script>
 	}
 }

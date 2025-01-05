@@ -11,7 +11,12 @@ func WithAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("sess")
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusInternalServerError)
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/login")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 

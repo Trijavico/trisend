@@ -18,6 +18,7 @@ func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore
 	handler.Handle("/assets/", http.FileServer(http.FS(public.Files)))
 	handler.Handle("/media/", http.StripPrefix("/media/", http.FileServer(http.Dir("./media"))))
 
+	handler.Handle("POST /logout", middleware.WithAuth(handleLogout()))
 	handler.Handle("GET /login", templ.Handler(views.Login()))
 	handler.Handle("GET /login/create", templ.Handler(views.FillProfile()))
 	handler.Handle("POST /login/create", handleLoginCreate(userStore))
@@ -27,8 +28,8 @@ func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore
 
 	handler.Handle("GET /keys", middleware.WithAuth(handleKeysView(userStore)))
 	handler.Handle("POST /keys", middleware.WithAuth(handleCreateKey(userStore)))
-	handler.Handle("DELETE /keys/{id}", middleware.WithAuth(handleDeleteKey(userStore)))
 	handler.Handle("GET /keys/create", middleware.WithAuth(handleCreateKeyView()))
+	handler.Handle("DELETE /keys/{id}", middleware.WithAuth(handleDeleteKey(userStore)))
 
 	// app.Group(func(onboarding chi.Router) {
 	// 	onboarding.Use()
