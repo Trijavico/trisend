@@ -48,7 +48,7 @@ templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 					This action <strong>CANNOT</strong> be undone. This will permanently delete the SSH key and if you’d like to use it in the future, you will need to upload it again.
 				</p>
 				<div class="px-4">
-					<button hx-trigger="click" id="submit" class="p-1 w-full rounded hover:bg-[#fa5e55] hover:text-[#ffffffba] text-[#fa5e55] bg-[#212830] border-[#ffffff47] border-solid border-[1px]">
+					<button id="submit" class="p-1 w-full rounded hover:bg-[#fa5e55] hover:text-[#ffffffba] text-[#fa5e55] bg-[#212830] border-[#ffffff47] border-solid border-[1px]">
 						I understand, delete this SSH key
 					</button>
 				</div>
@@ -64,10 +64,11 @@ templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 				})
 				$modalButton.addEventListener('click', function(e){
 					if (pendingReq) {
-						pendingReq.issueRequest();
+						pendingReq.issueRequest(true);
 						pendingReq = null;
 					}
 				})
+			})
 		</script>
 	}
 }
