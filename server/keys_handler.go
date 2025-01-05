@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"trisend/db"
 	"trisend/types"
@@ -59,10 +58,9 @@ func handleCreateKey(usrStore db.UserStore) http.HandlerFunc {
 
 func handleDeleteKey(usrStore db.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value(SESSION_COOKIE).(*types.Session)
 		sshID := r.PathValue("id")
 
-		err := usrStore.DeleteSSHKey(r.Context(), user.ID, sshID)
+		err := usrStore.DeleteSSHKey(r.Context(), sshID)
 		if err != nil {
 			http.Error(w, "an error occurred", http.StatusInternalServerError)
 			return

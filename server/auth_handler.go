@@ -272,6 +272,7 @@ func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 			return
 		}
 
+		auth.DeleteCookie(w, AUTH_COOKIE)
 		http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
 		w.Header().Set("HX-Redirect", "/")
 	}

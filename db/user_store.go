@@ -17,7 +17,7 @@ type UserStore interface {
 	GetByEmail(context.Context, string) (*types.Session, error)
 
 	AddSSHKey(ctx context.Context, userID, title, fingerprint string) error
-	DeleteSSHKey(ctx context.Context, userID, sshID string) error
+	DeleteSSHKey(ctx context.Context, sshID string) error
 	GetSSHKeys(ctx context.Context, userID string) ([]types.SSHKey, error)
 }
 
@@ -128,14 +128,15 @@ func (store *redisStore) GetByEmail(ctx context.Context, email string) (*types.S
 func (store *redisStore) AddSSHKey(ctx context.Context, userID, title, fingerprint string) error {
 	sshID := uuid.NewString()
 
-	key := fmt.Sprintf("user:%s:ssh_key", userID)
-
 	pipe := store.db.Pipeline()
+	// Mapping userID to sshKeyID
+	key := fmt.Sprintf("user:%s:ssh_key", userID)
 	pipe.SAdd(ctx, key, sshID)
 
+	// SSH Keys "Table"
 	key = "ssh_key:" + sshID
-	data := fmt.Sprintf("%s/%s/%s", sshID, title, fingerprint)
-	pipe.Set(ctx, key, data, 0)
+	data := fmt.Sprintf("%s/%s/%s/%s", sshID, userID, title, fingerprint)
+	pipe.SAdd(ctx, key, data)
 
 	_, err := pipe.Exec(ctx)
 	if err != nil {
@@ -145,16 +146,25 @@ func (store *redisStore) AddSSHKey(ctx context.Context, userID, title, fingerpri
 	return nil
 }
 
-func (store *redisStore) DeleteSSHKey(ctx context.Context, userID string, sshID string) error {
-	pipe := store.db.Pipeline()
+func (store *redisStore) DeleteSSHKey(ctx context.Context, sshID string) error {
+	key := fmt.Sprintf("ssh_key:%s", sshID)
 
-	key := fmt.Sprintf("user:%s:ssh_key", userID)
+	data, err := store.db.SMembers(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+
+	userID := strings.Split(data[0], "/")[1]
+
+	pipe := store.db.Pipeline()
+	// Delete one from ssh key "Table"
+	pipe.Del(ctx, key)
+
+	// Delete mapping
+	key = fmt.Sprintf("user:%s:ssh_key", userID)
 	pipe.SRem(ctx, key, sshID)
 
-	key = fmt.Sprintf("ssh_key:%s", sshID)
-	pipe.Del(ctx)
-
-	_, err := pipe.Exec(ctx)
+	_, err = pipe.Exec(ctx)
 	if err != nil {
 		return err
 	}
@@ -172,13 +182,14 @@ func (store *redisStore) GetSSHKeys(ctx context.Context, userID string) ([]types
 
 	pipe := store.db.Pipeline()
 	keys := make([]types.SSHKey, 0, len(sshKeys))
-	cmds := make([]*redis.StringCmd, len(sshKeys))
+	cmds := make([]*redis.StringSliceCmd, len(sshKeys))
 
 	for i, data := range sshKeys {
-		cmds[i] = pipe.Get(ctx, "ssh_key:"+data)
+		cmds[i] = pipe.SMembers(ctx, "ssh_key:"+data)
 	}
 
 	_, err = pipe.Exec(ctx)
+
 	for _, cmd := range cmds {
 		keyData, err := cmd.Result()
 		if err == redis.Nil {
@@ -187,11 +198,11 @@ func (store *redisStore) GetSSHKeys(ctx context.Context, userID string) ([]types
 			return nil, err
 		}
 
-		data := strings.Split(keyData, "/")
+		data := strings.Split(keyData[0], "/")
 		keys = append(keys, types.SSHKey{
 			ID:          data[0],
-			Title:       data[1],
-			Fingerprint: data[2],
+			Title:       data[2],
+			Fingerprint: data[3],
 		})
 	}
 
