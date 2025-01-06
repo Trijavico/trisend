@@ -15,10 +15,12 @@ type UserStore interface {
 	UpdateUser(context.Context, types.CreateUser) (*types.Session, error)
 	DeleteUser(context.Context, string) error
 	GetByEmail(context.Context, string) (*types.Session, error)
+	GetBySSHKey(context.Context, string) (*types.Session, error)
 
 	AddSSHKey(ctx context.Context, userID, title, fingerprint string) error
 	DeleteSSHKey(ctx context.Context, sshID string) error
 	GetSSHKeys(ctx context.Context, userID string) ([]types.SSHKey, error)
+	SSHKeyExists(ctx context.Context, fingerprint string) (bool, error)
 }
 
 type redisStore struct {
@@ -125,6 +127,31 @@ func (store *redisStore) GetByEmail(ctx context.Context, email string) (*types.S
 	return user, nil
 }
 
+func (store *redisStore) GetBySSHKey(ctx context.Context, fingerprint string) (*types.Session, error) {
+	key := fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
+	data, err := store.db.SMembers(ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	userID := strings.Split(data[0], "/")[1]
+
+	key = fmt.Sprintf("user:%s", userID)
+	userMap, err := store.db.HGetAll(ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	user := &types.Session{
+		ID:       userID,
+		Email:    userMap["email"],
+		Username: userMap["username"],
+		Pfp:      userMap["pfp"],
+	}
+
+	return user, nil
+}
+
 func (store *redisStore) AddSSHKey(ctx context.Context, userID, title, fingerprint string) error {
 	sshID := uuid.NewString()
 
@@ -135,11 +162,12 @@ func (store *redisStore) AddSSHKey(ctx context.Context, userID, title, fingerpri
 
 	// Mapping fingerprint to sshKeyID
 	key = fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
+	data := fmt.Sprintf("%s/%s", sshID, userID)
 	pipe.SAdd(ctx, key, sshID)
 
 	// SSH Keys "Table"
 	key = "ssh_key:" + sshID
-	data := fmt.Sprintf("%s/%s/%s/%s", sshID, userID, title, fingerprint)
+	data = fmt.Sprintf("%s/%s/%s/%s", sshID, userID, title, fingerprint)
 	pipe.SAdd(ctx, key, data)
 
 	_, err := pipe.Exec(ctx)
@@ -216,4 +244,17 @@ func (store *redisStore) GetSSHKeys(ctx context.Context, userID string) ([]types
 	}
 
 	return keys, nil
+}
+
+func (store *redisStore) SSHKeyExists(ctx context.Context, fingerprint string) (bool, error) {
+	key := fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
+
+	_, err := store.db.SMembers(ctx, key).Result()
+	if err == redis.Nil {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
