@@ -133,6 +133,10 @@ func (store *redisStore) AddSSHKey(ctx context.Context, userID, title, fingerpri
 	key := fmt.Sprintf("user:%s:ssh_key", userID)
 	pipe.SAdd(ctx, key, sshID)
 
+	// Mapping fingerprint to sshKeyID
+	key = fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
+	pipe.SAdd(ctx, key, sshID)
+
 	// SSH Keys "Table"
 	key = "ssh_key:" + sshID
 	data := fmt.Sprintf("%s/%s/%s/%s", sshID, userID, title, fingerprint)
@@ -154,13 +158,18 @@ func (store *redisStore) DeleteSSHKey(ctx context.Context, sshID string) error {
 		return err
 	}
 
-	userID := strings.Split(data[0], "/")[1]
+	splitted := strings.Split(data[0], "/")
+	userID := splitted[1]
+	fingerprint := splitted[3]
 
 	pipe := store.db.Pipeline()
+
+	key = fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
+	pipe.Del(ctx, key)
+
 	// Delete one from ssh key "Table"
 	pipe.Del(ctx, key)
 
-	// Delete mapping
 	key = fmt.Sprintf("user:%s:ssh_key", userID)
 	pipe.SRem(ctx, key, sshID)
 
