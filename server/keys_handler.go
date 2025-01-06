@@ -45,6 +45,17 @@ func handleCreateKey(usrStore db.UserStore) http.HandlerFunc {
 			return
 		}
 
+		exists, err := usrStore.SSHKeyExists(r.Context(), fingerprint)
+		if err != nil {
+			handleError(w, "an error occurred", err, http.StatusInternalServerError)
+			return
+		}
+
+		if exists {
+			handleError(w, "ssh key already exists", err, http.StatusInternalServerError)
+			return
+		}
+
 		err = usrStore.AddSSHKey(r.Context(), user.ID, title, fingerprint)
 		if err != nil {
 			http.Error(w, "an error occurred", http.StatusInternalServerError)
