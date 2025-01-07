@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,6 +12,9 @@ import (
 	"github.com/joho/godotenv"
 	gossh "golang.org/x/crypto/ssh"
 )
+
+//go:embed banner.txt
+var banner string
 
 func main() {
 	err := godotenv.Load()
@@ -31,18 +35,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	bannerBytes, err := os.ReadFile("banner.txt")
-	if err != nil {
-		slog.Info("banner not found")
-		os.Exit(1)
-	}
-
 	redisDB := db.NewRedisDB()
 	userStore := db.NewUserRedisStore(redisDB)
 	sessStore := db.NewRedisSessionStore(redisDB)
 
 	webserver := server.NewWebServer()
-	sshserver := server.NewSSHServer(privateKey, string(bannerBytes), userStore)
+	sshserver := server.NewSSHServer(privateKey, banner, userStore)
 
 	webserver.AddRoutes(userStore, sessStore)
 
