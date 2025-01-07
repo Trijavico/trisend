@@ -42,7 +42,7 @@ func main() {
 	sessStore := db.NewRedisSessionStore(redisDB)
 
 	webserver := server.NewWebServer()
-	sshserver := server.NewSSHServer(privateKey, string(bannerBytes))
+	sshserver := server.NewSSHServer(privateKey, string(bannerBytes), userStore)
 
 	webserver.AddRoutes(userStore, sessStore)
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 	"trisend/config"
+	"trisend/db"
 
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"
@@ -32,7 +33,7 @@ func (wbserver *WebServer) ListenAndServe() error {
 	return wbserver.server.ListenAndServe()
 }
 
-func NewSSHServer(privKey gossh.Signer, banner string) *ssh.Server {
+func NewSSHServer(privKey gossh.Signer, banner string, userStore db.UserStore) *ssh.Server {
 	address := net.JoinHostPort("0.0.0.0", config.SSH_PORT)
 	subSysHandlers := map[string]ssh.SubsystemHandler{
 		"sftp": handleSFTP,
@@ -46,8 +47,9 @@ func NewSSHServer(privKey gossh.Signer, banner string) *ssh.Server {
 
 	return &ssh.Server{
 		Addr:                 address,
-		Handler:              handleSSH,
 		Banner:               banner,
+		Handler:              handleSSH,
+		PublicKeyHandler:     handlePublicKey(userStore),
 		ServerConfigCallback: configCallback,
 		SubsystemHandlers:    subSysHandlers,
 		PtyCallback: func(ctx ssh.Context, pty ssh.Pty) bool {

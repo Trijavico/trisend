@@ -2,16 +2,37 @@ package server
 
 import (
 	"archive/zip"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"trisend/db"
 	"trisend/tunnel"
 	"trisend/util"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/pkg/sftp"
 )
+
+const user_key = "user"
+
+func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
+	return func(ctx ssh.Context, key ssh.PublicKey) bool {
+		shaHash := sha256.Sum256(key.Marshal())
+		fingerprint := base64.RawStdEncoding.EncodeToString(shaHash[:])
+
+		user, err := userStore.GetBySSHKey(context.Background(), fingerprint)
+		if err != nil {
+			return false
+		}
+		ctx.SetValue(user_key, user)
+
+		return true
+	}
+}
 
 func handleSSH(session ssh.Session) {
 	id := util.GetRandomID(10)

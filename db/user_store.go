@@ -163,7 +163,7 @@ func (store *redisStore) AddSSHKey(ctx context.Context, userID, title, fingerpri
 	// Mapping fingerprint to sshKeyID
 	key = fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
 	data := fmt.Sprintf("%s/%s", sshID, userID)
-	pipe.SAdd(ctx, key, sshID)
+	pipe.SAdd(ctx, key, data)
 
 	// SSH Keys "Table"
 	key = "ssh_key:" + sshID
@@ -249,11 +249,13 @@ func (store *redisStore) GetSSHKeys(ctx context.Context, userID string) ([]types
 func (store *redisStore) SSHKeyExists(ctx context.Context, fingerprint string) (bool, error) {
 	key := fmt.Sprintf("ssh_finger:%s:ssh_key", fingerprint)
 
-	_, err := store.db.SMembers(ctx, key).Result()
-	if err == redis.Nil {
-		return false, nil
-	} else if err != nil {
+	data, err := store.db.SMembers(ctx, key).Result()
+	if err != nil {
 		return false, err
+	}
+
+	if len(data) == 0 {
+		return false, nil
 	}
 
 	return true, nil
