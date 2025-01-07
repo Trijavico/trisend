@@ -29,7 +29,7 @@ func GetFingerPrint(key string) (string, error) {
 	}
 
 	shaHash := sha256.Sum256(sshBytes)
-	fingerprint := base64.StdEncoding.EncodeToString(shaHash[:])
+	fingerprint := base64.RawStdEncoding.EncodeToString(shaHash[:])
 
 	return fingerprint, nil
 }
