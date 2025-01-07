@@ -26,7 +26,7 @@ func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
 
 		user, err := userStore.GetBySSHKey(context.Background(), fingerprint)
 		if err != nil {
-			return false
+			return true
 		}
 		ctx.SetValue(user_key, user)
 
@@ -35,6 +35,12 @@ func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
 }
 
 func handleSSH(session ssh.Session) {
+	value := session.Context().Value(user_key)
+	if value == nil {
+		fmt.Fprintln(session.Stderr(), "You need an Account and register your ssh key")
+		return
+	}
+
 	id := util.GetRandomID(10)
 	filename := filepath.Base(session.RawCommand())
 	noExtName := filename[:len(filename)-len(filepath.Ext(filename))]
