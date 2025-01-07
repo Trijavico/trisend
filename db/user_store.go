@@ -102,10 +102,10 @@ func (store *redisStore) GetByEmail(ctx context.Context, email string) (*types.S
 	key := fmt.Sprintf("email:%s", email)
 
 	userKey, err := store.db.SMembers(ctx, key).Result()
-	if err == redis.Nil || len(userKey) == 0 {
-		return nil, redis.Nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
+	} else if len(userKey) == 0 {
+		return nil, redis.Nil
 	}
 
 	key = fmt.Sprintf("user:%s", userKey[0])
@@ -132,6 +132,8 @@ func (store *redisStore) GetBySSHKey(ctx context.Context, fingerprint string) (*
 	data, err := store.db.SMembers(ctx, key).Result()
 	if err != nil {
 		return nil, err
+	} else if len(data) == 0 {
+		return nil, redis.Nil
 	}
 
 	userID := strings.Split(data[0], "/")[1]
@@ -184,6 +186,8 @@ func (store *redisStore) DeleteSSHKey(ctx context.Context, sshID string) error {
 	data, err := store.db.SMembers(ctx, key).Result()
 	if err != nil {
 		return err
+	} else if len(data) == 0 {
+		return redis.Nil
 	}
 
 	splitted := strings.Split(data[0], "/")
@@ -229,10 +233,10 @@ func (store *redisStore) GetSSHKeys(ctx context.Context, userID string) ([]types
 
 	for _, cmd := range cmds {
 		keyData, err := cmd.Result()
-		if err == redis.Nil {
-			continue
-		} else if err != nil {
+		if err != nil {
 			return nil, err
+		} else if len(keyData) == 0 {
+			continue
 		}
 
 		data := strings.Split(keyData[0], "/")
