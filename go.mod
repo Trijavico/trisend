@@ -6,6 +6,7 @@ require (
 	github.com/a-h/templ v0.2.793
 	github.com/gliderlabs/ssh v0.3.7
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.1.1
 	github.com/joho/godotenv v1.5.1
 	github.com/markbates/goth v1.80.0
@@ -38,7 +39,6 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect

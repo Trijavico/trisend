@@ -36,7 +36,7 @@ func (wbserver *WebServer) ListenAndServe() error {
 func NewSSHServer(privKey gossh.Signer, banner string, userStore db.UserStore) *ssh.Server {
 	address := net.JoinHostPort("0.0.0.0", config.SSH_PORT)
 	subSysHandlers := map[string]ssh.SubsystemHandler{
-		"sftp": handleSFTP,
+		"sftp": handleSFTP(userStore),
 	}
 
 	configCallback := func(ctx ssh.Context) *gossh.ServerConfig {

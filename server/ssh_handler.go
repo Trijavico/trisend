@@ -7,8 +7,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
+	"sync"
 	"trisend/db"
 	"trisend/tunnel"
 	"trisend/util"
@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/sftp"
 )
 
-const user_key = "user"
+const stream_details = "user"
 
 func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
 	return func(ctx ssh.Context, key ssh.PublicKey) bool {
@@ -28,18 +28,24 @@ func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
 		if err != nil {
 			return true
 		}
-		ctx.SetValue(user_key, user)
+
+		streamDetails := &tunnel.StreamDetails{
+			Username: user.Username,
+			Pfp:      user.Pfp,
+		}
+		ctx.SetValue(stream_details, streamDetails)
 
 		return true
 	}
 }
 
 func handleSSH(session ssh.Session) {
-	value := session.Context().Value(user_key)
+	value := session.Context().Value(stream_details)
 	if value == nil {
 		fmt.Fprintln(session.Stderr(), "You need an Account and register your ssh key")
-		return
+		session.Exit(1)
 	}
+	streamDetails := value.(*tunnel.StreamDetails)
 
 	id := util.GetRandomID(10)
 	filename := filepath.Base(session.RawCommand())
@@ -47,8 +53,11 @@ func handleSSH(session ssh.Session) {
 	if noExtName == "" {
 		noExtName = "compressed_file"
 	}
-	tunnel.SetStream(id, make(chan tunnel.Stream))
-	fmt.Fprintf(session, "LINK: http://localhost:3000/download/%s?zip=%s\n", id, noExtName)
+
+	streamDetails.Filename = noExtName
+	tunnel.SetStream(id, make(chan tunnel.Stream), streamDetails)
+
+	fmt.Fprintf(session, "LINK: http://localhost:3000/download/%s\n", id)
 
 	streamChan, _ := tunnel.GetStream(id)
 	defer close(streamChan)
@@ -59,7 +68,7 @@ func handleSSH(session ssh.Session) {
 	if err != nil {
 		fmt.Fprintln(session, "error while transfering data")
 		fmt.Printf("ERROR: %s\n", err)
-		return
+		session.Exit(1)
 	}
 
 	_, err = io.Copy(fileWriter, session)
@@ -73,48 +82,106 @@ func handleSSH(session ssh.Session) {
 	close(stream.Done)
 }
 
-func handleSFTP(session ssh.Session) {
-	ID := util.GetRandomID(10)
-	streamChan := make(chan tunnel.Stream)
-	tunnel.SetStream(ID, streamChan)
-	defer close(streamChan)
+func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
+	return func(session ssh.Session) {
+		shaHash := sha256.Sum256(session.PublicKey().Marshal())
+		fingerprint := base64.RawStdEncoding.EncodeToString(shaHash[:])
 
-	handler := &sftpHandler{
-		id:         ID,
-		session:    session,
-		streamChan: streamChan,
+		user, err := userStore.GetBySSHKey(context.Background(), fingerprint)
+		if err != nil {
+			fmt.Fprintf(session.Stderr(), "Need to have a registered account\n")
+			session.Exit(1)
+		}
+
+		handler := &sftpHandler{
+			stderr: session.Stderr(),
+			streamDetails: &tunnel.StreamDetails{
+				Username: user.Username,
+				Pfp:      user.Pfp,
+			},
+		}
+
+		sftpHandlers := sftp.Handlers{
+			FileGet:  sftp.InMemHandler().FileGet,
+			FilePut:  handler,
+			FileCmd:  handler,
+			FileList: sftp.InMemHandler().FileList,
+		}
+
+		srv := sftp.NewRequestServer(session, sftpHandlers)
+		if err := srv.Serve(); err != nil && err != io.EOF {
+			fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
+		}
+
+		err = handler.Close()
+		if err != nil {
+			fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
+			session.Exit(1)
+		}
 	}
-
-	sftpHandlers := sftp.Handlers{
-		FileGet:  sftp.InMemHandler().FileGet,
-		FilePut:  handler,
-		FileCmd:  handler,
-		FileList: sftp.InMemHandler().FileList,
-	}
-
-	srv := sftp.NewRequestServer(session, sftpHandlers)
-	if err := srv.Serve(); err != nil && err != io.EOF {
-		fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
-	}
-
-	if handler.writeStream == nil {
-		return
-	}
-
-	if err := handler.zipWriter.Close(); err != nil {
-		fmt.Fprintf(session.Stderr(), "error closing zip: %s\n", err)
-	}
-
-	close(handler.writeStream.Done)
 }
 
 type sftpHandler struct {
-	id          string
-	queryParam  string
-	session     ssh.Session
-	streamChan  chan tunnel.Stream
-	writeStream *tunnel.Stream
-	zipWriter   *zip.Writer
+	sync.Once
+	stderr    io.Writer
+	zipWriter *zip.Writer
+
+	stream        *tunnel.Stream
+	streamDetails *tunnel.StreamDetails
+}
+
+func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
+	h.Do(func() {
+		ID := util.GetRandomID(10)
+		channel := make(chan tunnel.Stream)
+
+		if h.streamDetails.Filename == "" {
+			filename := filepath.Base(r.Filepath)
+			noExtName := filename[:len(filename)-len(filepath.Ext(filename))]
+
+			h.streamDetails.Filename = noExtName
+		}
+
+		tunnel.SetStream(ID, channel, h.streamDetails)
+		fmt.Fprintf(h.stderr, "LINK: http://localhost:3000/download/%s\n", ID)
+
+		stream := <-channel
+		h.stream = &stream
+		h.zipWriter = zip.NewWriter(h.stream.Writer)
+	})
+
+	fileWriter, err := h.zipWriter.Create(filepath.Base(r.Filepath))
+	if err != nil {
+		fmt.Printf("ERROR: %s\n", err)
+		return nil, fmt.Errorf("error while transfering data\n")
+	}
+
+	var writeAt writerAt
+	writeAt.writer = fileWriter
+
+	return &writeAt, nil
+}
+
+func (h *sftpHandler) Close() error {
+	close(h.stream.Done)
+	if err := h.zipWriter.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *sftpHandler) Filecmd(r *sftp.Request) error {
+	// it executes only if it is a directoy before transfer
+	if r.Method == "Mkdir" {
+		h.streamDetails.Filename = filepath.Base(r.Filepath)
+		return nil
+	}
+	// it executes after transfer
+	if r.Method == "Setstat" {
+		return nil
+	}
+	return sftp.ErrSshFxOpUnsupported
 }
 
 type writerAt struct {
@@ -123,45 +190,4 @@ type writerAt struct {
 
 func (h *writerAt) WriteAt(p []byte, off int64) (n int, err error) {
 	return h.writer.Write(p)
-}
-
-func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
-	if h.writeStream == nil {
-		if h.queryParam == "" {
-			filename := filepath.Base(r.Filepath)
-			noExtName := filename[:len(filename)-len(filepath.Ext(filename))]
-			h.queryParam = fmt.Sprintf("?zip=%s", noExtName)
-		}
-		fmt.Fprintf(h.session.Stderr(), "LINK: http://localhost:3000/download/%s%s\n", h.id, h.queryParam)
-		writeStream := <-h.streamChan
-		h.writeStream = &writeStream
-	}
-	if h.zipWriter == nil {
-		h.zipWriter = zip.NewWriter(h.writeStream.Writer)
-	}
-
-	fileWriter, err := h.zipWriter.Create(filepath.Base(r.Filepath))
-	if err != nil {
-		fmt.Printf("ERROR: %s\n", err)
-		return nil, fmt.Errorf("error while transfering data\n")
-	}
-	writeAt := writerAt{
-		writer: fileWriter,
-	}
-
-	return &writeAt, nil
-}
-
-func (h *sftpHandler) Filecmd(r *sftp.Request) error {
-	// it executes only if it is a directoy before transfer
-	if r.Method == "Mkdir" {
-		h.queryParam = fmt.Sprintf("?zip=%s", filepath.Base(r.Filepath))
-		return nil
-	}
-	// it executes after transfer
-	if r.Method == "Setstat" {
-		fmt.Fprintf(os.Stdin, "DEBUGGIN!!!\n")
-		return nil
-	}
-	return sftp.ErrSshFxOpUnsupported
 }
