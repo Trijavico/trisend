@@ -40,9 +40,6 @@ func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore
 	// 	onboarding.Get()
 	// })
 
-	// TODO: userKeysView, C.R.U.D operations
-	// TODO: profileView C.R.U.D operations
-
-	handler.HandleFunc("GET /download/{id}", handleDownloadPage)         // TODO: protect
-	handler.HandleFunc("GET /download/direct/{id}", handleTransferFiles) // TODO: protect
+	handler.HandleFunc("GET /download/{id}", handleDownloadPage)
+	handler.HandleFunc("GET /download/direct/{id}", handleTransferFiles)
 }

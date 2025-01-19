@@ -30,3 +30,25 @@ type SSHKey struct {
 	Title       string
 	Fingerprint string
 }
+
+type ValidationSSHForm struct {
+	Fields map[string]string
+	Errors map[string]string
+}
+
+func (form *ValidationSSHForm) Validate(title, key string) bool {
+	form.Fields["title"] = title
+	form.Fields["key"] = key
+	isValid := true
+
+	if title == "" {
+		form.Errors["title"] = "Invalid title"
+		isValid = false
+	}
+	if key == "" {
+		form.Errors["key"] = "Invalid key"
+		isValid = false
+	}
+
+	return isValid
+}

@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed"
-	"fmt"
 	"log/slog"
 	"os"
 	"trisend/config"
@@ -19,23 +18,27 @@ var banner string
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		slog.Error(fmt.Sprintf("Error loading env variables: %s", err))
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 	config.LoadConfig()
 
 	keyBytes, err := os.ReadFile("./keys/host")
 	if err != nil {
-		slog.Error("key not found")
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 	privateKey, err := gossh.ParsePrivateKey(keyBytes)
 	if err != nil {
-		slog.Error("error parsing key bytes")
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 
-	redisDB := db.NewRedisDB()
+	redisDB, err := db.NewRedisDB()
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 	userStore := db.NewUserRedisStore(redisDB)
 	sessStore := db.NewRedisSessionStore(redisDB)
 
@@ -47,14 +50,14 @@ func main() {
 	go func() {
 		slog.Info("SSH Server running...")
 		if err := sshserver.ListenAndServe(); err != nil {
-			slog.Error(fmt.Sprintf("SSH server failed: %s", err))
+			slog.Error(err.Error())
 			os.Exit(1)
 		}
 	}()
 
 	slog.Info("HTTP Server running...")
 	if err := webserver.ListenAndServe(); err != nil {
-		slog.Error(fmt.Sprintf("HTTP server failed: %s", err))
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 }

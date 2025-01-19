@@ -3,6 +3,22 @@ body {
 	background-color: #1C1D21;
 }
 
+.htmx-indicator {
+	z-index: -100;
+	opacity: 0;
+	background-color: inherit;
+	border-radius: inherit;
+}
+
+.htmx-request .htmx-indicator {
+	opacity: 1;
+	z-index: 10;
+}
+
+.htmx-request.htmx-indicator {
+	opacity: 1;
+}
+
 #header_logo {
 	display: block;
 	background: linear-gradient(45deg, #00FEEF, #3D76E0);
@@ -117,4 +133,8 @@ body {
 
 [popover]::backdrop {
 	background: rgba(0, 0, 0, 0.5);
+}
+
+div[data-hide] {
+	top: -100px;
 }

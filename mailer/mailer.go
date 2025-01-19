@@ -32,10 +32,6 @@ func NewMailer(subject, receiverEmail, msg string) *mailer {
 func (mailer *mailer) Send() error {
 	to := []string{mailer.receiver}
 
-	if ok := isValidEmail(mailer.receiver); !ok {
-		return InvalidEmail
-	}
-
 	auth := smtp.PlainAuth("", config.SMTP_USER, config.SMTP_PASSWORD, gmailHost)
 	mail := fmt.Sprintf(
 		"Subject: %s\r\n\r\n%s",
@@ -51,7 +47,7 @@ func (mailer *mailer) Send() error {
 	return nil
 }
 
-func isValidEmail(email string) bool {
+func IsValidEmail(email string) bool {
 	regex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 	validator := regexp.MustCompile(regex)
 	if validator.MatchString(email) {

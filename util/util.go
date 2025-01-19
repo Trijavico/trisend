@@ -23,7 +23,8 @@ func GetFingerPrint(key string) (string, error) {
 		return "", fmt.Errorf("invalid SSH public key format")
 	}
 
-	sshBytes, err := base64.StdEncoding.DecodeString(splitted[1])
+	cleanStr := strings.ReplaceAll(splitted[1], "\n", "")
+	sshBytes, err := base64.StdEncoding.DecodeString(cleanStr)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode ssh key: %v", err)
 	}

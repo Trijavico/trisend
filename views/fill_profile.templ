@@ -5,32 +5,7 @@ import "trisend/views/layouts"
 templ FillProfile() {
 	@layouts.BaseLayout() {
 		<div class="h-screen flex justify-center items-center">
-			<form hx-post="/login/create" enctype="multipart/form-data" id="lighting" class="w-full max-w-[800px] relative isolate p-6 text-[#f1f1f1ad] border-black border-solid border-[3px] rounded-[2ex]">
-				<header class="px-5 mb-7">
-					<h2 class="text-center pb-4 border-b-[2px] border-b-solid border-b-[#ffffff1f] font-bold text-[1.8rem]">Complete Your Profile</h2>
-				</header>
-				<div class="form_fields grid grid-cols-[1fr_2fr]">
-					<div class="form form_field grid gap-4 pl-6">
-						<span class="size-60 rounded-[50%] overflow-hidden block">
-							<img id="img_placeholder" class="max-w-full block rounded-[50%] object-cover" src="/assets/placeholder.svg" alt="Choose File"/>
-						</span>
-						<label for="upload" class="w-full grid place-items-center cursor-pointer h-12 text-center bg-white hover:bg-[#ffffffc4] active:bg-[#ffffffc4] text-black rounded-[1ex] font-semibold">
-							<span>Upload image</span>
-							<input id="upload" name="image" class="absolute invisible -z-10 inset-0" accept="image/*" type="file"/>
-						</label>
-					</div>
-					<div class="form form_field flex items-center px-10">
-						<div>
-							<label for="username" class="text-[15px] text-[#f1f1f1ad] font-bold">Display name</label>
-							<input required name="username" type="text" class="relative mb-4 outline-none max-w-[320px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full h-12 px-4 border-black border-solid border-[3px] rounded-[1ex] bg-transparent text-[rgba(255,255,255,0.7)]"/>
-							<!-- Submit button -->
-							<button class="h-12 w-full max-w-[320px] text-center text-white bg-green-600 rounded-[1ex] px-4 font-bold border-solid border-[3px] border-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.8),0_1px_0_0_rgba(255,255,255,0.5)]">
-								Continue
-							</button>
-						</div>
-					</div>
-				</div>
-			</form>
+			@CreateUserForm("", nil)
 		</div>
 		<script>
 			document.querySelector("#upload").addEventListener("change", function(e){
@@ -43,4 +18,48 @@ templ FillProfile() {
 			})
 		</script>
 	}
+}
+
+templ CreateUserForm(value string, err error) {
+	<form
+		id="lighting"
+		hx-swap-oob="true"
+		hx-post="/login/create"
+		enctype="multipart/form-data"
+		class="w-full max-w-[800px] relative isolate p-6 text-[#f1f1f1ad] border-black border-solid border-[3px] rounded-[2ex]"
+	>
+		<header class="px-5 mb-7">
+			<h2 class="text-center pb-4 border-b-[2px] border-b-solid border-b-[#ffffff1f] font-bold text-[1.8rem]">Complete Your Profile</h2>
+		</header>
+		<div class="form_fields grid grid-cols-[1fr_2fr]">
+			<div class="form form_field grid gap-4 pl-6">
+				<span class="size-60 rounded-[50%] overflow-hidden block">
+					<img id="img_placeholder" class="max-w-full block rounded-[50%] object-cover" src="/assets/placeholder.svg" alt="Choose File"/>
+				</span>
+				<label for="upload" class="w-full grid place-items-center cursor-pointer h-12 text-center bg-white hover:bg-[#ffffffc4] active:bg-[#ffffffc4] text-black rounded-[1ex] font-semibold">
+					<span>Upload image</span>
+					<input id="upload" name="image" class="absolute invisible -z-10 inset-0" accept="image/*" type="file"/>
+				</label>
+			</div>
+			<div class="form form_field flex items-center px-10">
+				<div>
+					<label for="username" class="text-[15px] text-[#f1f1f1ad] font-bold">Display name</label>
+					<input
+						required
+						value={ value }
+						name="username"
+						type="text"
+						class="relative mb-4 outline-none max-w-[320px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full h-12 px-4 border-black border-solid border-[3px] rounded-[1ex] bg-transparent text-[rgba(255,255,255,0.7)]"
+					/>
+					if err != nil {
+						<span class="error-msg text-red-500 text-sm">{ err.Error() }</span>
+					}
+					<!-- Submit button -->
+					<button class="h-12 w-full max-w-[320px] text-center text-white bg-green-600 rounded-[1ex] px-4 font-bold border-solid border-[3px] border-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.8),0_1px_0_0_rgba(255,255,255,0.5)]">
+						Continue
+					</button>
+				</div>
+			</div>
+		</div>
+	</form>
 }

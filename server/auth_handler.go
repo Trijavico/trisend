@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 	"trisend/auth"
 	"trisend/db"
@@ -24,6 +23,10 @@ import (
 const (
 	SESSION_COOKIE = "sess"
 	AUTH_COOKIE    = "auth"
+
+	auth_code_error      = "Unable to sent authentication code"
+	verify_auth_error    = "Unable to verify authentication code"
+	create_account_error = "Unable to create account"
 )
 
 func handleOAuth(store db.UserStore) http.HandlerFunc {
@@ -76,7 +79,11 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var email string
 		if email = r.FormValue("email"); email == "" {
-			http.Error(w, "no email provided", http.StatusInternalServerError)
+			views.EmailForm(email, fmt.Errorf("Invalid email")).Render(r.Context(), w)
+			return
+		}
+		if !mailer.IsValidEmail(email) {
+			views.EmailForm(email, fmt.Errorf("Invalid email")).Render(r.Context(), w)
 			return
 		}
 
@@ -90,13 +97,15 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 
 		token, err := auth.CreateToken(claims)
 		if err != nil {
-			http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, auth_code_error, http.StatusInternalServerError)
 			return
 		}
 
 		err = store.CreateTransitSess(r.Context(), sessionID, code)
 		if err != nil {
-			http.Error(w, "failed to sent mail message", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, auth_code_error, http.StatusInternalServerError)
 			return
 		}
 
@@ -104,13 +113,14 @@ func handleAuthCode(store db.SessionStore) http.HandlerFunc {
 		emailer := mailer.NewMailer("Verfication code", email, body)
 
 		if err := emailer.Send(); err != nil {
-			fmt.Println(err)
-			http.Error(w, "failed to sent mail message", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, auth_code_error, http.StatusInternalServerError)
 			return
 		}
 
 		http.SetCookie(w, auth.CreateCookie(AUTH_COOKIE, token, int(time.Minute*5)))
-		views.ContinueWithCode().Render(r.Context(), w)
+		w.WriteHeader(http.StatusAccepted)
+		views.EmailForm(email, nil).Render(r.Context(), w)
 	}
 }
 
@@ -118,15 +128,15 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(AUTH_COOKIE)
 		if err != nil {
-			slog.Error("Failed to sent message", "error", err)
-			http.Error(w, "no code provided", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, verify_auth_error, http.StatusInternalServerError)
 			return
 		}
 
 		claims, err := auth.ParseToken(cookie.Value)
 		if err != nil {
-			slog.Error("Failed to sent message", ":", err)
-			http.Error(w, "no code provided", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, verify_auth_error, http.StatusInternalServerError)
 			return
 		}
 
@@ -136,14 +146,13 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 
 		value, err := sessStore.GetTransitSessByID(r.Context(), key)
 		if err != nil {
-			slog.Error("failed to sent message", "error", err)
-			http.Error(w, "failed to sent message", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, verify_auth_error, http.StatusInternalServerError)
 			return
 		}
 
 		if code != value {
-			slog.Error("invalid code")
-			http.Error(w, "invalid code", http.StatusInternalServerError)
+			views.AuthCodeForm(code, fmt.Errorf("Invalid code")).Render(r.Context(), w)
 			return
 		}
 
@@ -152,8 +161,8 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 			w.Header().Set("HX-Redirect", "/login/create")
 			return
 		} else if err != nil {
-			slog.Error("Failed to continue with login", "error", err)
-			http.Error(w, "failed to continue with login", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, verify_auth_error, http.StatusInternalServerError)
 			return
 		}
 
@@ -166,13 +175,14 @@ func handleVerification(sessStore db.SessionStore, usrStore db.UserStore) http.H
 
 		token, err := auth.CreateToken(mappedUser)
 		if err != nil {
-			slog.Error("Failed to continue with login", "error", err)
-			http.Error(w, "failed to continue with login", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, verify_auth_error, http.StatusInternalServerError)
 			return
 		}
 
 		auth.DeleteCookie(w, AUTH_COOKIE)
 		http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
+
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)
 	}
@@ -182,67 +192,68 @@ func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(AUTH_COOKIE)
 		if err != nil {
-			slog.Error("Failed cookie", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 
 		claims, err := auth.ParseToken(cookie.Value)
 		if err != nil {
-			slog.Error("Failed parsing JWT", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 
 		limit := int64(5 << 20) // 5MB
 		if err := r.ParseMultipartForm(limit); err != nil {
-			slog.Error("Failed parsing Multipart Form", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 		defer r.MultipartForm.RemoveAll()
 
 		email := claims["email"].(string)
 		username := r.FormValue("username")
+		if username == "" {
+			views.CreateUserForm(username, fmt.Errorf("Invalid username")).Render(r.Context(), w)
+			return
+		}
 
 		file, header, err := r.FormFile("image")
 		if err != nil {
-			slog.Error("Failed parsing JWT", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 
 		path, err := os.Getwd()
 		if err != nil {
-			slog.Error("Faile creating dir", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 
 		path = filepath.Join(path, "media")
-
-		var once sync.Once
-		once.Do(func() {
-			if err := os.MkdirAll(path, os.ModePerm); err != nil {
-				http.Error(w, "an error occurred", http.StatusInternalServerError)
-				return
-			}
-		})
+		if err := os.MkdirAll(path, os.ModePerm); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
+			return
+		}
 
 		parsedFilename := strings.ReplaceAll(header.Filename, " ", "")
 		filename := util.GetRandomID(12) + parsedFilename
 		createdFile, err := os.Create(filepath.Join(path, filename))
 		if err != nil {
-			slog.Error("Failed creating file", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 		defer createdFile.Close()
 
 		_, err = io.Copy(createdFile, file)
 		if err != nil {
-			slog.Error("Failed saving file", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 
@@ -255,8 +266,8 @@ func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 
 		userSession, err := usrStore.CreateUser(r.Context(), user)
 		if err != nil {
-			slog.Error("Failed parsing JWT", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 
@@ -267,8 +278,8 @@ func handleLoginCreate(usrStore db.UserStore) http.HandlerFunc {
 			"pfp":      pfp,
 		})
 		if err != nil {
-			slog.Error("Failed parsing JWT", "error", err)
-			http.Error(w, "an error occurred", http.StatusInternalServerError)
+			slog.Error(err.Error())
+			http.Error(w, create_account_error, http.StatusInternalServerError)
 			return
 		}
 

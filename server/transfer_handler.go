@@ -23,6 +23,7 @@ func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	done := make(chan struct{})
+	Error := make(chan struct{})
 
 	channel, ok := tunnel.GetStream(id)
 	defer tunnel.DeleteStream(id)
@@ -31,13 +32,20 @@ func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", details.Filename))
-	w.Header().Set("Content-Type", "application/zip")
-
 	channel <- tunnel.Stream{
 		Writer: w,
 		Done:   done,
+		Error:  Error,
 	}
 
-	<-done
+	select {
+	case <-done:
+		close(Error)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", details.Filename))
+		w.Header().Set("Content-Type", "application/zip")
+
+	case <-Error:
+		close(done)
+		http.Error(w, "Unable to process download", http.StatusInternalServerError)
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"sync"
 	"trisend/db"
@@ -44,14 +45,16 @@ func handleSSH(session ssh.Session) {
 	if value == nil {
 		fmt.Fprintln(session.Stderr(), "You need an Account and register your ssh key")
 		session.Exit(1)
+		return
 	}
 	streamDetails := value.(*tunnel.StreamDetails)
 
 	id := util.GetRandomID(10)
 	filename := filepath.Base(session.RawCommand())
 	noExtName := filename[:len(filename)-len(filepath.Ext(filename))]
-	if noExtName == "" {
+	if noExtName == "" || filename == "" {
 		noExtName = "compressed_file"
+		filename = "Unnamed_file.txt"
 	}
 
 	streamDetails.Filename = noExtName
@@ -66,19 +69,30 @@ func handleSSH(session ssh.Session) {
 	zipWriter := zip.NewWriter(stream.Writer)
 	fileWriter, err := zipWriter.Create(filename)
 	if err != nil {
+		close(stream.Error)
+		slog.Error(err.Error())
 		fmt.Fprintln(session, "error while transfering data")
-		fmt.Printf("ERROR: %s\n", err)
 		session.Exit(1)
+		return
 	}
 
 	_, err = io.Copy(fileWriter, session)
 	if err != nil {
-		session.Write([]byte("an error occurred while streaming data"))
+		close(stream.Error)
+		fmt.Fprintln(session, "an error occurred while streaming data")
+		slog.Error(err.Error())
+		session.Exit(1)
+		return
 	}
 
 	if err := zipWriter.Close(); err != nil {
-		fmt.Fprintf(session.Stderr(), "error closing zip: %s\n", err)
+		close(stream.Error)
+		fmt.Fprintln(session, "error closing zip")
+		slog.Error(err.Error())
+		session.Exit(1)
+		return
 	}
+
 	close(stream.Done)
 }
 
@@ -91,6 +105,7 @@ func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
 		if err != nil {
 			fmt.Fprintf(session.Stderr(), "Need to have a registered account\n")
 			session.Exit(1)
+			return
 		}
 
 		handler := &sftpHandler{
@@ -152,7 +167,8 @@ func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 
 	fileWriter, err := h.zipWriter.Create(filepath.Base(r.Filepath))
 	if err != nil {
-		fmt.Printf("ERROR: %s\n", err)
+		close(h.stream.Error)
+		slog.Error(err.Error())
 		return nil, fmt.Errorf("error while transfering data\n")
 	}
 
@@ -163,9 +179,13 @@ func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (h *sftpHandler) Close() error {
-	close(h.stream.Done)
-	if err := h.zipWriter.Close(); err != nil {
-		return err
+	if h.stream != nil {
+		if err := h.zipWriter.Close(); err != nil {
+			close(h.stream.Error)
+			return err
+		}
+
+		close(h.stream.Done)
 	}
 
 	return nil

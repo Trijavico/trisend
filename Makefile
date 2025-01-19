@@ -1,5 +1,5 @@
 
-run: web build
+all: web build
 	@./bin/main
 
 build:

@@ -1,13 +1,14 @@
 package db
 
 import (
+	"context"
 	"net"
 	"trisend/config"
 
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRedisDB() *redis.Client {
+func NewRedisDB() (*redis.Client, error) {
 	address := net.JoinHostPort(config.DB_HOST, config.DB_PORT)
 	opts := &redis.Options{
 		Addr:     address,
@@ -15,5 +16,10 @@ func NewRedisDB() *redis.Client {
 		DB:       config.DB_NAME,
 	}
 
-	return redis.NewClient(opts)
+	client := redis.NewClient(opts)
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }

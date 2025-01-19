@@ -9,6 +9,7 @@ import (
 type Stream struct {
 	Writer io.Writer
 	Done   chan struct{}
+	Error  chan struct{}
 }
 
 var (
