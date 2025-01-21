@@ -2,17 +2,30 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"trisend/tunnel"
+	"trisend/types"
 	"trisend/views"
+	"trisend/views/components"
 )
 
 func handleDownloadPage(w http.ResponseWriter, r *http.Request) {
-	fullURL := fmt.Sprintf("%s/download/direct/%s",
-		r.URL.Hostname(),
-		r.PathValue("id"),
-	)
-	views.Download(fullURL).Render(r.Context(), w)
+	value := r.Context().Value(SESSION_COOKIE)
+	user := value.(*types.Session)
+
+	id := r.PathValue("id")
+	details, err := tunnel.GetStreamDetails(id)
+	if err != nil {
+		slog.Error(err.Error())
+		views.NotFound(user).Render(r.Context(), w)
+		return
+	}
+
+	url := fmt.Sprintf("%s/download/direct/%s", r.URL.Hostname(), id)
+
+	profileBtn := components.ProfileButton(user)
+	views.Download(details, url, profileBtn).Render(r.Context(), w)
 }
 
 func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
@@ -40,12 +53,11 @@ func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-done:
-		close(Error)
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", details.Filename))
 		w.Header().Set("Content-Type", "application/zip")
-
+		close(Error)
 	case <-Error:
-		close(done)
 		http.Error(w, "Unable to process download", http.StatusInternalServerError)
+		close(done)
 	}
 }

@@ -1,12 +1,61 @@
 package views
 
-templ Download(url string) {
-	<div class="h-full w-full place-content-center text-center bg-[#181818e3] backdrop-blur-md">
-		<h1>Your download is starting...</h1>
-		<p>If the download does not start automatically, <a id="downloadLink" href={ templ.SafeURL(url) }>click here</a>.</p>
-	</div>
-	<script>
-		const downloadURL = new URL(window.location.href)
-		const ID = downloadURL.pathname.split("/").pop()
-	</script>
+import (
+	"fmt"
+	"trisend/tunnel"
+	"trisend/views/components"
+	"trisend/views/layouts"
+)
+
+templ Download(details *tunnel.StreamDetails, url string, ProfileButton templ.Component) {
+	@layouts.Layout() {
+		@components.Notification(1) {
+			<div>
+				<strong class="block">Error Notification</strong>
+				<span>An error has occurred, try it later.</span>
+			</div>
+		}
+		<header class="fixed left-0 right-0 flex items-center justify-between pl-6 pr-14 pt-6 before:contet-[''] before:block before:absolute before:-bottom-[25px] before:left-0 before:right-0 before:h-[4px] before:bg-black before:shadow-[0_1px_0_0_#ffffff29] before:-z-10">
+			<span id="header_logo" class="font-bold text-white text-4xl">
+				<a href="/">Trisend</a>
+			</span>
+			@ProfileButton
+		</header>
+		<div class="h-full w-full grid place-content-center">
+			<div class="content">
+				<div class="img_wrapper w-[200px] ml-auto mr-auto mb-6">
+					<img
+						src={ details.Pfp }
+						alt={ fmt.Sprintf("%s's profile image", details.Username) }
+						class="object-cover max-w-full block aspect-square rounded-[50%]"
+					/>
+				</div>
+				<h1 class="text-[26px] text-[#f2f2f2] pb-7">
+					<strong><span id="header_logo" class="font-bold">{ details.Username }</span></strong> wants to share some files
+				</h1>
+				<div id="lighting" class="file_details relative rounded-3xl p-4 border-black border-[3px] border-solid">
+					<ul class="text-[#ffffffa6] grid gap-4">
+						<li>Filename: { details.Filename }</li>
+						<li>Expires in 15 minutes</li>
+						<li class="pt-4">
+							<button
+								hx-get={ url }
+								class="w-full h-[38px] flex items-center bg-[#4ED34E] max-w-min px-4 rounded-[1ex] hover:bg-[#30BE30]/90 text-white text-base font-medium"
+							>
+								Download
+							</button>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<script>
+			document.body.addEventListener('htmx:responseError', function(e){
+				const $notifier = document.querySelector('#notify_comp')
+				$notifier?.removeAttribute('data-hide')
+				setTimeout(() => $notifier?.setAttribute('data-hide', '') , 3000)
+
+			})
+		</script>
+	}
 }

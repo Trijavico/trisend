@@ -20,7 +20,7 @@ body {
 }
 
 #header_logo {
-	display: block;
+	display: inline-block;
 	background: linear-gradient(45deg, #00FEEF, #3D76E0);
 	background-clip: text;
 	-webkit-background-clip: text;

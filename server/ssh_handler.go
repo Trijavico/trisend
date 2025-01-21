@@ -68,6 +68,7 @@ func handleSSH(session ssh.Session) {
 
 	zipWriter := zip.NewWriter(stream.Writer)
 	fileWriter, err := zipWriter.Create(filename)
+
 	if err != nil {
 		close(stream.Error)
 		slog.Error(err.Error())

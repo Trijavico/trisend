@@ -31,15 +31,6 @@ func (wb *WebServer) AddRoutes(userStore db.UserStore, sessStore db.SessionStore
 	handler.Handle("GET /keys/create", middleware.WithAuth(handleCreateKeyView()))
 	handler.Handle("DELETE /keys/{id}", middleware.WithAuth(handleDeleteKey(userStore)))
 
-	// app.Group(func(onboarding chi.Router) {
-	// 	onboarding.Use()
-	// 	onboarding.Use()
-	//
-	// 	onboarding.Get()
-	// 	onboarding.Post()
-	// 	onboarding.Get()
-	// })
-
-	handler.HandleFunc("GET /download/{id}", handleDownloadPage)
-	handler.HandleFunc("GET /download/direct/{id}", handleTransferFiles)
+	handler.HandleFunc("GET /download/{id}", middleware.WithAuth(handleDownloadPage))
+	handler.HandleFunc("GET /download/direct/{id}", middleware.WithAuth(handleTransferFiles))
 }
