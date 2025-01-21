@@ -81,7 +81,7 @@ func handleCreateKey(usrStore db.UserStore) http.HandlerFunc {
 		err = usrStore.AddSSHKey(r.Context(), user.ID, title, fingerprint)
 		if err != nil {
 			slog.Error(err.Error())
-			components.Notification(1).Render(r.Context(), w)
+			http.Error(w, "Unable to add key", http.StatusInternalServerError)
 			return
 		}
 

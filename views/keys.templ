@@ -2,11 +2,18 @@ package views
 
 import (
 	"trisend/types"
+	"trisend/views/components"
 	"trisend/views/layouts"
 )
 
 templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 	@layouts.Layout() {
+		@components.Notification(1) {
+			<div>
+				<strong class="block">Error Notification</strong>
+				<span>An error has occurred, try it later.</span>
+			</div>
+		}
 		<header class="flex items-center justify-between pl-6 pr-14 pt-6 relative before:contet-[''] before:block before:absolute before:-bottom-[25px] before:left-0 before:right-0 before:h-[4px] before:bg-black before:shadow-[0_1px_0_0_#ffffff29] before:-z-10">
 			<span id="header_logo" class="font-bold text-white text-4xl">
 				<a href="/">Trisend</a>
@@ -68,6 +75,11 @@ templ Keys(ProfileButton templ.Component, keys []types.SSHKey) {
 						pendingReq.issueRequest(true);
 						pendingReq = null;
 					}
+				})
+				document.body.addEventListener('htmx:responseError', function(e){
+					const $notifier = document.querySelector('#notify_comp')
+					$notifier?.removeAttribute('data-hide')
+					setTimeout(() => $notifier?.setAttribute('data-hide', '') , 3000)
 				})
 			})
 		</script>
