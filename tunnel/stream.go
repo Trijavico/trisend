@@ -1,9 +1,9 @@
 package tunnel
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type Stream struct {
@@ -13,19 +13,20 @@ type Stream struct {
 }
 
 var (
-	streamings = map[string]chan Stream{}
-	details    sync.Map
-	mutex      sync.RWMutex
+	streamings    = map[string]chan Stream{}
+	streamDetails sync.Map
+	mutex         sync.RWMutex
 )
 
 type StreamDetails struct {
 	Username string
 	Pfp      string
 	Filename string
+	Expires  time.Time
 }
 
 func SetStream(key string, stream chan Stream, value *StreamDetails) {
-	details.Store(key, value)
+	streamDetails.Store(key, value)
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -33,23 +34,36 @@ func SetStream(key string, stream chan Stream, value *StreamDetails) {
 }
 
 func GetStream(key string) (chan Stream, bool) {
-	mutex.RLock()
-	defer mutex.RUnlock()
+	details, ok := GetStreamDetails(key)
+	if !ok {
+		return nil, ok
+	} else if time.Now().After(details.Expires) {
+		return nil, false
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
 	stream, ok := streamings[key]
+
 	return stream, ok
 }
 
-func GetStreamDetails(key string) (*StreamDetails, error) {
-	value, ok := details.Load(key)
+func GetStreamDetails(key string) (*StreamDetails, bool) {
+	value, ok := streamDetails.Load(key)
 	if !ok {
-		return nil, fmt.Errorf("value not found")
+		return nil, ok
 	}
 
-	return value.(*StreamDetails), nil
+	details := value.(*StreamDetails)
+	if time.Now().After(details.Expires) {
+		return nil, false
+	}
+
+	return details, ok
 }
 
 func DeleteStream(key string) {
-	details.Delete(key)
+	streamDetails.Delete(key)
 
 	mutex.Lock()
 	defer mutex.Unlock()

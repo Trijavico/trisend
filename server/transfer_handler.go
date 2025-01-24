@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"trisend/tunnel"
 	"trisend/types"
@@ -15,9 +14,8 @@ func handleDownloadPage(w http.ResponseWriter, r *http.Request) {
 	user := value.(*types.Session)
 
 	id := r.PathValue("id")
-	details, err := tunnel.GetStreamDetails(id)
-	if err != nil {
-		slog.Error(err.Error())
+	details, ok := tunnel.GetStreamDetails(id)
+	if !ok {
 		views.NotFound(user).Render(r.Context(), w)
 		return
 	}
@@ -33,15 +31,15 @@ func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 	value := r.Context().Value(SESSION_COOKIE)
 	user := value.(*types.Session)
 
-	done := make(chan struct{})
-	Error := make(chan struct{})
-
 	channel, ok := tunnel.GetStream(id)
-	defer tunnel.DeleteStream(id)
 	if !ok {
 		views.NotFound(user).Render(r.Context(), w)
 		return
 	}
+	defer tunnel.DeleteStream(id)
+
+	done := make(chan struct{})
+	Error := make(chan struct{})
 
 	channel <- tunnel.Stream{
 		Writer: w,

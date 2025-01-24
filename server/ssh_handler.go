@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 	"trisend/db"
 	"trisend/tunnel"
 	"trisend/util"
@@ -23,12 +24,14 @@ import (
 const (
 	stream_details = "user"
 	limit          = 5295309 // 5.05MB
+	timeout        = time.Minute * 10
 )
 
 var (
-	maxLimitError = fmt.Errorf("Limit REACHED: 5.04 MB")
-	defaultError  = fmt.Errorf("An error has occurred, try it later.")
-	authError     = fmt.Errorf("No Account found with SSH key. Create a new account.")
+	maxLimitError   = fmt.Errorf("Limit REACHED: 5.04 MB")
+	defaultError    = fmt.Errorf("An error has occurred, try it later.")
+	authError       = fmt.Errorf("No Account found with SSH key. Create a new account.")
+	expirationError = fmt.Errorf("15 minutes has been expired")
 )
 
 func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
@@ -81,14 +84,24 @@ func handleSSH(session ssh.Session) {
 	defer temp.Close()
 
 	streamDetails.Filename = noExtName
+	streamDetails.Expires = time.Now().Add(timeout)
 	tunnel.SetStream(id, make(chan tunnel.Stream), streamDetails)
 
 	fmt.Fprintf(session, "LINK: http://localhost:3000/download/%s\n", id)
 
-	streamChan, _ := tunnel.GetStream(id)
-	defer close(streamChan)
+	channel, _ := tunnel.GetStream(id)
+	defer close(channel)
 
-	stream := <-streamChan
+	var stream tunnel.Stream
+	select {
+	case stream = <-channel:
+	case <-time.After(timeout):
+		fmt.Fprintln(session.Stderr(), expirationError)
+		tunnel.DeleteStream(id)
+		session.Exit(1)
+		return
+	}
+
 	defer func() {
 		close(stream.Done)
 		if !errChanClosed {
@@ -145,10 +158,6 @@ func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
 			return
 		}
 
-		streamDetails := new(tunnel.StreamDetails)
-		streamDetails.Username = user.Username
-		streamDetails.Pfp = user.Pfp
-
 		temp, err := os.CreateTemp("", "trisend-*.temp")
 		if err != nil {
 			slog.Error(err.Error())
@@ -156,12 +165,22 @@ func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
 		}
 		defer temp.Close()
 
+		streamDetails := new(tunnel.StreamDetails)
+		streamDetails.Username = user.Username
+		streamDetails.Pfp = user.Pfp
+
+		expiration := time.Now().Add(timeout)
+		streamDetails.Expires = expiration
+
 		handler := newSFTPHandler(
 			session.Stderr(),
 			temp,
 			streamDetails,
 		)
 		defer func() {
+			if time.Now().After(expiration) {
+				return
+			}
 			close(handler.stream.Done)
 			if !errChanClosed {
 				close(handler.stream.Error)
@@ -172,13 +191,20 @@ func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
 		handler.server = srv
 
 		if err := srv.Serve(); err != nil && err != io.EOF {
+			if time.Now().After(expiration) {
+				fmt.Fprintln(session.Stderr(), expirationError)
+				session.Exit(1)
+				return
+			}
+
 			close(handler.stream.Error)
-			slog.Error(err.Error())
 			if errors.Is(err, maxLimitError) {
 				fmt.Fprintln(session.Stderr(), maxLimitError)
 				session.Exit(1)
 				return
 			}
+
+			slog.Error(err.Error())
 			fmt.Fprintln(session, defaultError)
 			session.Exit(1)
 			return
@@ -202,10 +228,8 @@ func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
 			return
 		}
 
-		fmt.Println("NO ESTA LLEGANDO AQUI")
 		errChanClosed = false
 		handler.stream.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", streamDetails.Filename))
-		// handler.stream.Writer.Header().Set("Content-Type", "application/zip")
 
 		io.Copy(handler.stream.Writer, handler.tempFile)
 	}
@@ -246,6 +270,7 @@ func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 	h.Do(func() {
 		ID := util.GetRandomID(10)
 		channel := make(chan tunnel.Stream)
+		defer close(channel)
 
 		if h.streamDetails.Filename == "" {
 			filename := filepath.Base(r.Filepath)
@@ -254,11 +279,19 @@ func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 			h.streamDetails.Filename = noExtName
 		}
 
+		h.streamDetails.Expires = time.Now().Add(timeout)
 		tunnel.SetStream(ID, channel, h.streamDetails)
 		fmt.Fprintf(h.stderr, "LINK: http://localhost:3000/download/%s\n", ID)
 
-		stream := <-channel
-		h.stream = &stream
+		select {
+		case stream := <-channel:
+			h.stream = &stream
+		case <-time.After(timeout):
+			fmt.Fprintln(h.stderr, expirationError)
+			tunnel.DeleteStream(ID)
+			h.server.Close()
+		}
+
 		h.zipWriter = zip.NewWriter(h.tempFile)
 	})
 

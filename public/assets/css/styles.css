@@ -808,6 +808,10 @@ video {
   width: 200px;
 }
 
+.w-\[35ch\] {
+  width: 35ch;
+}
+
 .w-full {
   width: 100%;
 }
@@ -975,6 +979,14 @@ video {
 
 .overflow-hidden {
   overflow: hidden;
+}
+
+.overflow-ellipsis {
+  text-overflow: ellipsis;
+}
+
+.whitespace-nowrap {
+  white-space: nowrap;
 }
 
 .rounded {
