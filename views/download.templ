@@ -28,7 +28,9 @@ templ Download(details *tunnel.StreamDetails, url string, ProfileButton templ.Co
 				</h1>
 				<div id="lighting" class="file_details relative rounded-3xl p-4 border-black border-[3px] border-solid">
 					<ul class="text-[#ffffffa6] grid gap-4">
-						<li>Filename: { details.Filename }</li>
+						<li class="w-[35ch] overflow-ellipsis overflow-hidden whitespace-nowrap">
+							Filename: { details.Filename }
+						</li>
 						<li>Expires in 15 minutes</li>
 						<li class="pt-4">
 							<a
