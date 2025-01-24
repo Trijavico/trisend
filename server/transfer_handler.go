@@ -30,18 +30,16 @@ func handleDownloadPage(w http.ResponseWriter, r *http.Request) {
 
 func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	details, err := tunnel.GetStreamDetails(id)
-	if err != nil {
-		handleError(w, "an error occurred", err, http.StatusInternalServerError)
-		return
-	}
+	value := r.Context().Value(SESSION_COOKIE)
+	user := value.(*types.Session)
+
 	done := make(chan struct{})
 	Error := make(chan struct{})
 
 	channel, ok := tunnel.GetStream(id)
 	defer tunnel.DeleteStream(id)
 	if !ok {
-		http.Error(w, "stream not found", http.StatusInternalServerError)
+		views.NotFound(user).Render(r.Context(), w)
 		return
 	}
 
@@ -53,11 +51,7 @@ func handleTransferFiles(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-done:
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", details.Filename))
-		w.Header().Set("Content-Type", "application/zip")
-		close(Error)
 	case <-Error:
-		http.Error(w, "Unable to process download", http.StatusInternalServerError)
-		close(done)
+		views.NotFound(user).Render(r.Context(), w)
 	}
 }

@@ -3,18 +3,11 @@ package views
 import (
 	"fmt"
 	"trisend/tunnel"
-	"trisend/views/components"
 	"trisend/views/layouts"
 )
 
 templ Download(details *tunnel.StreamDetails, url string, ProfileButton templ.Component) {
 	@layouts.Layout() {
-		@components.Notification(1) {
-			<div>
-				<strong class="block">Error Notification</strong>
-				<span>An error has occurred, try it later.</span>
-			</div>
-		}
 		<header class="fixed left-0 right-0 flex items-center justify-between pl-6 pr-14 pt-6 before:contet-[''] before:block before:absolute before:-bottom-[25px] before:left-0 before:right-0 before:h-[4px] before:bg-black before:shadow-[0_1px_0_0_#ffffff29] before:-z-10">
 			<span id="header_logo" class="font-bold text-white text-4xl">
 				<a href="/">Trisend</a>
@@ -38,24 +31,16 @@ templ Download(details *tunnel.StreamDetails, url string, ProfileButton templ.Co
 						<li>Filename: { details.Filename }</li>
 						<li>Expires in 15 minutes</li>
 						<li class="pt-4">
-							<button
-								hx-get={ url }
+							<a
+								href={ templ.SafeURL(url) }
 								class="w-full h-[38px] flex items-center bg-[#4ED34E] max-w-min px-4 rounded-[1ex] hover:bg-[#30BE30]/90 text-white text-base font-medium"
 							>
 								Download
-							</button>
+							</a>
 						</li>
 					</ul>
 				</div>
 			</div>
 		</div>
-		<script>
-			document.body.addEventListener('htmx:responseError', function(e){
-				const $notifier = document.querySelector('#notify_comp')
-				$notifier?.removeAttribute('data-hide')
-				setTimeout(() => $notifier?.setAttribute('data-hide', '') , 3000)
-
-			})
-		</script>
 	}
 }

@@ -5,9 +5,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"sync"
 	"trisend/db"
@@ -18,7 +20,16 @@ import (
 	"github.com/pkg/sftp"
 )
 
-const stream_details = "user"
+const (
+	stream_details = "user"
+	limit          = 5295309 // 5.05MB
+)
+
+var (
+	maxLimitError = fmt.Errorf("Limit REACHED: 5.04 MB")
+	defaultError  = fmt.Errorf("An error has occurred, try it later.")
+	authError     = fmt.Errorf("No Account found with SSH key. Create a new account.")
+)
 
 func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
 	return func(ctx ssh.Context, key ssh.PublicKey) bool {
@@ -41,9 +52,11 @@ func handlePublicKey(userStore db.UserStore) ssh.PublicKeyHandler {
 }
 
 func handleSSH(session ssh.Session) {
+	errChanClosed := true
+
 	value := session.Context().Value(stream_details)
 	if value == nil {
-		fmt.Fprintln(session.Stderr(), "You need an Account and register your ssh key")
+		fmt.Fprintln(session.Stderr(), authError)
 		session.Exit(1)
 		return
 	}
@@ -53,9 +66,19 @@ func handleSSH(session ssh.Session) {
 	filename := filepath.Base(session.RawCommand())
 	noExtName := filename[:len(filename)-len(filepath.Ext(filename))]
 	if noExtName == "" || filename == "" {
-		noExtName = "compressed_file"
-		filename = "Unnamed_file.txt"
+		fmt.Fprintln(session.Stderr(), "ssh trisend <filename> < <filepath>")
+		session.Exit(1)
+		return
 	}
+
+	temp, err := os.CreateTemp("", "trisend-*.temp")
+	if err != nil {
+		slog.Error(err.Error())
+		fmt.Fprintln(session, defaultError)
+		session.Exit(1)
+		return
+	}
+	defer temp.Close()
 
 	streamDetails.Filename = noExtName
 	tunnel.SetStream(id, make(chan tunnel.Stream), streamDetails)
@@ -64,86 +87,159 @@ func handleSSH(session ssh.Session) {
 
 	streamChan, _ := tunnel.GetStream(id)
 	defer close(streamChan)
-	stream := <-streamChan
 
+	stream := <-streamChan
+	defer func() {
+		close(stream.Done)
+		if !errChanClosed {
+			close(stream.Error)
+		}
+	}()
+
+	limitReader := io.LimitReader(session, limit)
+
+	amount, err := io.Copy(temp, limitReader)
+	if err != nil {
+		close(stream.Error)
+		fmt.Fprintln(session.Stderr(), maxLimitError)
+		session.Exit(1)
+		return
+	}
+	if amount == limit {
+		close(stream.Error)
+		fmt.Fprintln(session, maxLimitError)
+		session.Exit(1)
+		return
+	}
+
+	_, err = temp.Seek(0, 0)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+
+	stream.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", noExtName))
 	zipWriter := zip.NewWriter(stream.Writer)
 	fileWriter, err := zipWriter.Create(filename)
-
 	if err != nil {
-		close(stream.Error)
 		slog.Error(err.Error())
-		fmt.Fprintln(session, "error while transfering data")
-		session.Exit(1)
-		return
+		os.Exit(1)
 	}
 
-	_, err = io.Copy(fileWriter, session)
-	if err != nil {
-		close(stream.Error)
-		fmt.Fprintln(session, "an error occurred while streaming data")
-		slog.Error(err.Error())
-		session.Exit(1)
-		return
-	}
-
-	if err := zipWriter.Close(); err != nil {
-		close(stream.Error)
-		fmt.Fprintln(session, "error closing zip")
-		slog.Error(err.Error())
-		session.Exit(1)
-		return
-	}
-
-	close(stream.Done)
+	errChanClosed = false
+	io.Copy(fileWriter, temp)
+	zipWriter.Close()
 }
 
 func handleSFTP(userStore db.UserStore) ssh.SubsystemHandler {
 	return func(session ssh.Session) {
+		errChanClosed := true
+
 		shaHash := sha256.Sum256(session.PublicKey().Marshal())
 		fingerprint := base64.RawStdEncoding.EncodeToString(shaHash[:])
 
 		user, err := userStore.GetBySSHKey(context.Background(), fingerprint)
 		if err != nil {
-			fmt.Fprintf(session.Stderr(), "Need to have a registered account\n")
+			fmt.Fprintln(session.Stderr(), authError)
 			session.Exit(1)
 			return
 		}
 
-		handler := &sftpHandler{
-			stderr: session.Stderr(),
-			streamDetails: &tunnel.StreamDetails{
-				Username: user.Username,
-				Pfp:      user.Pfp,
-			},
-		}
+		streamDetails := new(tunnel.StreamDetails)
+		streamDetails.Username = user.Username
+		streamDetails.Pfp = user.Pfp
 
-		sftpHandlers := sftp.Handlers{
-			FileGet:  sftp.InMemHandler().FileGet,
-			FilePut:  handler,
-			FileCmd:  handler,
-			FileList: sftp.InMemHandler().FileList,
-		}
-
-		srv := sftp.NewRequestServer(session, sftpHandlers)
-		if err := srv.Serve(); err != nil && err != io.EOF {
-			fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
-		}
-
-		err = handler.Close()
+		temp, err := os.CreateTemp("", "trisend-*.temp")
 		if err != nil {
-			fmt.Fprintf(session.Stderr(), "an error occurred while transfering %s\n", err)
-			session.Exit(1)
+			slog.Error(err.Error())
+			os.Exit(1)
 		}
+		defer temp.Close()
+
+		handler := newSFTPHandler(
+			session.Stderr(),
+			temp,
+			streamDetails,
+		)
+		defer func() {
+			close(handler.stream.Done)
+			if !errChanClosed {
+				close(handler.stream.Error)
+			}
+		}()
+
+		srv := sftp.NewRequestServer(session, handler.Build())
+		handler.server = srv
+
+		if err := srv.Serve(); err != nil && err != io.EOF {
+			close(handler.stream.Error)
+			slog.Error(err.Error())
+			if errors.Is(err, maxLimitError) {
+				fmt.Fprintln(session.Stderr(), maxLimitError)
+				session.Exit(1)
+				return
+			}
+			fmt.Fprintln(session, defaultError)
+			session.Exit(1)
+			return
+		}
+
+		err = handler.zipWriter.Close()
+		if err != nil {
+			close(handler.stream.Error)
+			slog.Error(err.Error())
+			fmt.Fprintln(session.Stderr(), defaultError)
+			session.Exit(1)
+			return
+		}
+
+		_, err = handler.tempFile.Seek(0, 0)
+		if err != nil {
+			close(handler.stream.Error)
+			slog.Error(err.Error())
+			fmt.Fprintln(session.Stderr(), defaultError)
+			session.Exit(1)
+			return
+		}
+
+		fmt.Println("NO ESTA LLEGANDO AQUI")
+		errChanClosed = false
+		handler.stream.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", streamDetails.Filename))
+		// handler.stream.Writer.Header().Set("Content-Type", "application/zip")
+
+		io.Copy(handler.stream.Writer, handler.tempFile)
 	}
 }
 
 type sftpHandler struct {
 	sync.Once
-	stderr    io.Writer
-	zipWriter *zip.Writer
+	stderr     io.Writer
+	zipWriter  *zip.Writer
+	totalSize  *int
+	tempFile   *os.File
+	server     *sftp.RequestServer
+	fileWriter io.Writer
 
 	stream        *tunnel.Stream
 	streamDetails *tunnel.StreamDetails
+}
+
+func newSFTPHandler(stderr io.ReadWriter, temp *os.File, streamDetails *tunnel.StreamDetails) *sftpHandler {
+	return &sftpHandler{
+		stderr:        stderr,
+		tempFile:      temp,
+		totalSize:     new(int),
+		streamDetails: streamDetails,
+	}
+}
+
+func (h *sftpHandler) Build() sftp.Handlers {
+	return sftp.Handlers{
+		FileGet:  sftp.InMemHandler().FileGet,
+		FilePut:  h,
+		FileCmd:  h,
+		FileList: sftp.InMemHandler().FileList,
+	}
 }
 
 func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
@@ -163,39 +259,26 @@ func (h *sftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 
 		stream := <-channel
 		h.stream = &stream
-		h.zipWriter = zip.NewWriter(h.stream.Writer)
+		h.zipWriter = zip.NewWriter(h.tempFile)
 	})
 
 	fileWriter, err := h.zipWriter.Create(filepath.Base(r.Filepath))
 	if err != nil {
-		close(h.stream.Error)
 		slog.Error(err.Error())
-		return nil, fmt.Errorf("error while transfering data\n")
+		return nil, defaultError
 	}
 
-	var writeAt writerAt
-	writeAt.writer = fileWriter
+	h.fileWriter = fileWriter
 
-	return &writeAt, nil
-}
-
-func (h *sftpHandler) Close() error {
-	if h.stream != nil {
-		if err := h.zipWriter.Close(); err != nil {
-			close(h.stream.Error)
-			return err
-		}
-
-		close(h.stream.Done)
-	}
-
-	return nil
+	return h, nil
 }
 
 func (h *sftpHandler) Filecmd(r *sftp.Request) error {
-	// it executes only if it is a directoy before transfer
+	// it executes only if it is a directoy, before transfer
 	if r.Method == "Mkdir" {
-		h.streamDetails.Filename = filepath.Base(r.Filepath)
+		if h.streamDetails.Filename == "" {
+			h.streamDetails.Filename = filepath.Base(r.Filepath)
+		}
 		return nil
 	}
 	// it executes after transfer
@@ -205,10 +288,18 @@ func (h *sftpHandler) Filecmd(r *sftp.Request) error {
 	return sftp.ErrSshFxOpUnsupported
 }
 
-type writerAt struct {
-	writer io.Writer
-}
+func (h *sftpHandler) WriteAt(p []byte, off int64) (n int, err error) {
+	amount, err := h.fileWriter.Write(p)
+	if err != nil {
+		return 0, err
+	}
 
-func (h *writerAt) WriteAt(p []byte, off int64) (n int, err error) {
-	return h.writer.Write(p)
+	*h.totalSize = *h.totalSize + amount
+	if *h.totalSize >= limit {
+		fmt.Fprintf(h.stderr, "\n\n%v\n\n", maxLimitError)
+		h.server.Close()
+		return 0, maxLimitError
+	}
+
+	return amount, nil
 }

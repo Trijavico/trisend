@@ -2,12 +2,12 @@ package tunnel
 
 import (
 	"fmt"
-	"io"
+	"net/http"
 	"sync"
 )
 
 type Stream struct {
-	Writer io.Writer
+	Writer http.ResponseWriter
 	Done   chan struct{}
 	Error  chan struct{}
 }
