@@ -1456,10 +1456,6 @@ video {
   outline-offset: 2px;
 }
 
-.outline {
-  outline-style: solid;
-}
-
 .transition-all {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);

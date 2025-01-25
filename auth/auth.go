@@ -15,9 +15,10 @@ import (
 
 func SetupOAuth() {
 	cookieStore := sessions.NewCookieStore([]byte(config.SESSION_SECRET))
+	cookieStore.Options.HttpOnly = true
 	gothic.Store = cookieStore
 
-	goth.UseProviders(github.New(config.CLIENT_ID, config.CLIENT_SECRET, ""))
+	goth.UseProviders(github.New(config.CLIENT_ID, config.CLIENT_SECRET, "", "user:email"))
 }
 
 func CreateCookie(name, value string, maxAge int) *http.Cookie {
@@ -27,7 +28,7 @@ func CreateCookie(name, value string, maxAge int) *http.Cookie {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   config.IsAppEnvProd(),
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   maxAge,
 	}
 }

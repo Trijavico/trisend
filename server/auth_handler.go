@@ -36,33 +36,49 @@ func handleOAuth(store db.UserStore) http.HandlerFunc {
 			gothic.BeginAuthHandler(w, r)
 
 		case "callback":
-			user, err := gothic.CompleteUserAuth(w, r)
+			gothUser, err := gothic.CompleteUserAuth(w, r)
 			if err != nil {
 				return
 			}
 
-			userData, err := store.GetByEmail(r.Context(), user.Email)
-			if err == redis.Nil || err != nil {
-				slog.Error("An error occurred", "error", err)
-				http.Error(w, "an error ocurred", http.StatusInternalServerError)
+			user, err := store.GetByEmail(r.Context(), gothUser.Email)
+			if err != nil && err != redis.Nil {
+				slog.Error(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
+			if user == nil {
+				createUser := types.CreateUser{
+					Email:    gothUser.Email,
+					Username: gothUser.NickName,
+					Pfp:      gothUser.AvatarURL,
+				}
+
+				user, err = store.CreateUser(r.Context(), createUser)
+				if err != nil {
+					slog.Error(err.Error())
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+			}
+
 			claims := map[string]interface{}{
-				"id":       userData.ID,
-				"email":    userData.Email,
-				"username": userData.Username,
-				"pfp":      userData.Pfp,
+				"id":       user.ID,
+				"email":    user.Email,
+				"username": user.Username,
+				"pfp":      user.Pfp,
 			}
 
 			token, err := auth.CreateToken(claims)
 			if err != nil {
-				http.Error(w, "an error ocurred", http.StatusInternalServerError)
+				slog.Error(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
 			http.SetCookie(w, auth.CreateCookie(SESSION_COOKIE, token, int(time.Hour*5)))
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, "/", http.StatusPermanentRedirect)
 		}
 	}
 }

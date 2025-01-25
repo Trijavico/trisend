@@ -2,8 +2,10 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
 	"log/slog"
 	"os"
+	"trisend/auth"
 	"trisend/config"
 	"trisend/db"
 	"trisend/server"
@@ -22,6 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 	config.LoadConfig()
+	auth.SetupOAuth()
 
 	keyBytes, err := os.ReadFile("./keys/host")
 	if err != nil {
@@ -55,7 +58,7 @@ func main() {
 		}
 	}()
 
-	slog.Info("HTTP Server running...")
+	slog.Info(fmt.Sprintf("HTTP Server running on PORT %s...", config.SERVER_PORT))
 	if err := webserver.ListenAndServe(); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
