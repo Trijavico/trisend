@@ -3,10 +3,10 @@ all: web build
 	@./bin/main
 
 build:
-	@go build -o ./bin/main main.go
+	@go build -o ./bin/main cmd/api/*
 
 web:
-	@templ generate & tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/styles.css
+	@templ generate & tailwindcss -i ./public/input.css -o ./public/assets/css/styles.css
 
 sshfile:
 	@ssh -p 2222 localhost < ./banner.txt

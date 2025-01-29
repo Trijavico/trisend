@@ -1,0 +1,189 @@
+package views
+
+import (
+	"trisend/internal/views/components"
+	"trisend/internal/views/layouts"
+)
+
+templ Login() {
+	@layouts.BaseLayout() {
+		@components.Notification(0) {
+			<strong class="block">Success Notification</strong>
+			<span>Code has been sent to your email</span>
+		}
+		@components.Notification(1) {
+			<div id="error_notifier">
+				<strong class="block">Error Notification</strong>
+				<span>Try sending a new code</span>
+			</div>
+		}
+		<div class="min-h-screen relative bg-[#1C1D21] text-[#f2f2f2] flex justify-center items-center">
+			<div id="lighting" class="h-min translate-y-[-5%] translate-x-[-5%] isolate relative w-full max-w-[480px] rounded-3xl p-8 border-black border-[3px] border-solid">
+				/* Notion Logo */
+				<div class="flex items-center gap-2 mb-4">
+					<div class="w-10 h-10 overflow-hidden bg-black rounded-lg flex items-center justify-center">
+						<a href="/">
+							<img src="/assets/personal_logo.webp" alt="Logo"/>
+						</a>
+					</div>
+					<span class="font-medium text-xl">Trisend</span>
+				</div>
+				<h1 class="text-[40px] font-bold text-center mb-8">Log in</h1>
+				/* Social Login Buttons */
+				<div class="space-y-4 mb-8">
+					<a
+						href="/auth/login?provider=github"
+						class="w-full flex gap-2 items-center rounded-[1ex] justify-center h-12 bg-white hover:bg-gray-50 text-black border border-gray-300 text-base font-medium"
+					>
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="icon icon-tabler icons-tabler-filled icon-tabler-brand-github"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5.315 2.1c.791 -.113 1.9 .145 3.333 .966l.272 .161l.16 .1l.397 -.083a13.3 13.3 0 0 1 4.59 -.08l.456 .08l.396 .083l.161 -.1c1.385 -.84 2.487 -1.17 3.322 -1.148l.164 .008l.147 .017l.076 .014l.05 .011l.144 .047a1 1 0 0 1 .53 .514a5.2 5.2 0 0 1 .397 2.91l-.047 .267l-.046 .196l.123 .163c.574 .795 .93 1.728 1.03 2.707l.023 .295l.007 .272c0 3.855 -1.659 5.883 -4.644 6.68l-.245 .061l-.132 .029l.014 .161l.008 .157l.004 .365l-.002 .213l-.003 3.834a1 1 0 0 1 -.883 .993l-.117 .007h-6a1 1 0 0 1 -.993 -.883l-.007 -.117v-.734c-1.818 .26 -3.03 -.424 -4.11 -1.878l-.535 -.766c-.28 -.396 -.455 -.579 -.589 -.644l-.048 -.019a1 1 0 0 1 .564 -1.918c.642 .188 1.074 .568 1.57 1.239l.538 .769c.76 1.079 1.36 1.459 2.609 1.191l.001 -.678l-.018 -.168a5.03 5.03 0 0 1 -.021 -.824l.017 -.185l.019 -.12l-.108 -.024c-2.976 -.71 -4.703 -2.573 -4.875 -6.139l-.01 -.31l-.004 -.292a5.6 5.6 0 0 1 .908 -3.051l.152 -.222l.122 -.163l-.045 -.196a5.2 5.2 0 0 1 .145 -2.642l.1 -.282l.106 -.253a1 1 0 0 1 .529 -.514l.144 -.047l.154 -.03z"></path></svg>
+						Continue with Github 
+					</a>
+				</div>
+				/* Email form */
+				@EmailForm("", nil)
+				@AuthCodeForm("", "", nil)
+			</div>
+		</div>
+		<script>
+			document.body.addEventListener('htmx:afterRequest', function (e) {
+				let config = e.detail.requestConfig
+				let status = e.detail.xhr.status
+				const $emailForm = document.querySelector('#email_form')
+				const $countdownMsg = document.querySelector('#countdown-msg')
+				const $notifier = document.querySelector('#notify_comp')
+				const $errNotifier = document.querySelector('#notify_comp:has(#error_notifier)')
+				if (status == 400) {
+					$errNotifier.removeAttribute('data-hide')
+					setTimeout(() => $errNotifier.setAttribute('data-hide', '') , 5000)
+					return
+				}
+
+				if (config.path === "/login/send-code" && status == 202) {
+					$notifier.removeAttribute('data-hide')
+					setTimeout(() => $notifier.setAttribute('data-hide', '') , 3000)
+					document.querySelector("#email_verification").value = document.querySelector("#email_form input").value
+
+					$emailForm.disabled = true
+					$emailForm.querySelector('button').disabled = true
+
+					let secondsLeft = 10;
+					const countdownInterval = setInterval(() => {
+						secondsLeft--;
+						$countdownMsg.textContent = `Resend in ${secondsLeft} seconds`;
+						$countdownMsg.classList.remove('hidden');
+
+						if (secondsLeft <= 0) {
+							clearInterval(countdownInterval);
+							$countdownMsg.classList.add('hidden');
+						}
+					}, 1000)
+					setTimeout(() => {
+						$emailForm.disabled = false
+						$emailForm.querySelector('button').disabled = false
+					}, 10000)
+				}
+			});
+		</script>
+	}
+}
+
+templ EmailForm(value string, err error) {
+	<form
+		id="email_form"
+		hx-post="/login/send-code"
+		hx-disabled-elt="this"
+		hx-swap-oob="true"
+		class="grid gap-2 grid-cols-[1fr_auto] items-end space-y-6"
+	>
+		<div class="input input_group relative">
+			<label class="text-sm text-gray-600 mb-1 block">Email</label>
+			<input
+				name="email"
+				type="email"
+				value={ value }
+				placeholder="user@gmail.com"
+				class="relative shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full h-12 px-4 border-black border-solid border-[3px] rounded-[1ex] bg-transparent text-[rgba(255,255,255,0.7)]"
+			/>
+			<span id="countdown-msg" class="text-sm text-gray-400 mt-1 absolute left-0 bottom-0 translate-y-full hidden"></span>
+			if err != nil {
+				<span class="error-msg text-red-500 text-sm mt-1 absolute left-0 bottom-0 translate-y-full">{ err.Error() }</span>
+			}
+		</div>
+		<button
+			id="send-code"
+			hx-indicator="#spinner"
+			class="h-12 bg-green-600 disabled:grayscale relative rounded-[1ex] px-4 border-solid border-[3px] border-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.8),0_1px_0_0_rgba(255,255,255,0.5)]"
+		>
+			<div id="spinner" class="htmx-indicator absolute inset-0 grid place-items-center">
+				<svg
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="animate-spin icon icon-tabler icons-tabler-outline icon-tabler-rotate-clockwise"
+				>
+					<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4.05 11a8 8 0 1 1 .5 4m-.5 5v-5h5"></path>
+				</svg>
+			</div>
+			<span class="icon-container">
+				<svg
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="icon icon-tabler icons-tabler-outline icon-tabler-send-2"
+				><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4.698 4.034l16.302 7.966l-16.302 7.966a.503 .503 0 0 1 -.546 -.124a.555 .555 0 0 1 -.12 -.568l2.468 -7.274l-2.468 -7.274a.555 .555 0 0 1 .12 -.568a.503 .503 0 0 1 .546 -.124z"></path><path d="M6.5 12h14.5"></path></svg>
+			</span>
+		</button>
+	</form>
+}
+
+templ AuthCodeForm(code, email string, err error) {
+	<form
+		id="code_field"
+		hx-post="/login/verify-code"
+		hx-disabled="this"
+		hx-swap="outerHTML"
+		class="pt-4"
+	>
+		<div class="relative pt-6 pb-6">
+			<input
+				id="email_verification"
+				type="text"
+				name="email"
+				value={ email }
+				class="invisible absolute left-0 top-0 -z-20"
+			/>
+			<label class="text-sm text-gray-600 mb-1 block">Verification code</label>
+			<input
+				type="text"
+				name="code"
+				value={ code }
+				placeholder="Paste login code"
+				hx-on:keydown="this.closest('#code_field').querySelectorAll('#server_msg')?.forEach(html => html.remove())"
+				class="relative shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] isolate w-full px-4 border-black border-[3px] border-solid rounded-[1ex] bg-transparent h-12 text-[rgba(255,255,255,0.7)]"
+			/>
+			if err != nil {
+				<span id="server_msg" class="text-red-500 text-sm">{ err.Error() }</span>
+			}
+		</div>
+		<button class="w-full h-12 bg-[#4ED34E] rounded-[1ex] hover:bg-[#30BE30]/90 text-white border-0 text-base font-medium">
+			Continue with Code 
+		</button>
+	</form>
+}
+
+templ SentMailResponse() {
+	<div id="server_msg" class="sent_message text-center text-sm text-green-600 pb-1">
+		<p>We just sent you a temporary login code.</p>
+		<p>Please check your inbox.</p>
+	</div>
+}
