@@ -29,6 +29,12 @@ type TransitSess struct {
 	Email string
 }
 
+type AuthCodeMail struct {
+	Host    string
+	Code    string
+	Expires int
+}
+
 type SSHKey struct {
 	ID          string
 	Title       string

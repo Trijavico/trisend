@@ -33,14 +33,23 @@ func (mailer *mailer) Send() error {
 	to := []string{mailer.receiver}
 
 	auth := smtp.PlainAuth("", config.SMTP_USER, config.SMTP_PASSWORD, gmailHost)
-	mail := fmt.Sprintf(
-		"Subject: %s\r\n\r\n%s",
-		mailer.subject,
-		mailer.body,
-	)
-	smtpServer := net.JoinHostPort(gmailHost, "587")
 
-	if err := smtp.SendMail(smtpServer, auth, config.SMTP_USER, to, []byte(mail)); err != nil {
+	headers := make(map[string]string)
+	headers["From"] = config.SMTP_USER
+	headers["To"] = mailer.receiver
+	headers["Subject"] = mailer.subject
+	headers["MIME-Version"] = "1.0"
+	headers["Content-Type"] = "text/html; charset=UTF-8"
+
+	var message string
+	for key, value := range headers {
+		message += fmt.Sprintf("%s: %s\r\n", key, value)
+	}
+
+	message += "\r\n" + mailer.body
+
+	smtpServer := net.JoinHostPort(gmailHost, "587")
+	if err := smtp.SendMail(smtpServer, auth, config.SMTP_USER, to, []byte(message)); err != nil {
 		return err
 	}
 

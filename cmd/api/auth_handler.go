@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
@@ -27,6 +29,7 @@ const (
 	SESSION_COOKIE = "sess"
 	AUTH_COOKIE    = "auth"
 
+	authCodeExpires      = 10
 	auth_code_error      = "Unable to sent authentication code"
 	verify_auth_error    = "Unable to verify authentication code"
 	create_account_error = "Unable to create account"
@@ -84,15 +87,34 @@ func handleAuthCode(app App) http.HandlerFunc {
 		sessionID := uuid.NewString()
 		code := util.GetRandomID(8)
 
-		err := app.SessionStore.CreateTransitSess(r.Context(), sessionID, code)
+		err := app.SessionStore.CreateTransitSess(r.Context(), sessionID, code, authCodeExpires)
 		if err != nil {
 			slog.Error(err.Error())
 			http.Error(w, auth_code_error, http.StatusInternalServerError)
 			return
 		}
 
-		body := fmt.Sprintf("CODE: %s", code)
-		emailer := mailer.NewMailer("Verfication code", email, body)
+		if app.AuthCodeTemplate == nil {
+			path, err := os.Getwd()
+			if err != nil {
+				slog.Error(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			templatePath := filepath.Join(path, "templates", "authVerification.html")
+			app.AuthCodeTemplate = template.Must(template.ParseFiles(templatePath))
+		}
+
+		var bodyBuffer bytes.Buffer
+		data := types.AuthCodeMail{
+			Host:    config.HOST,
+			Code:    code,
+			Expires: authCodeExpires,
+		}
+
+		app.AuthCodeTemplate.Execute(&bodyBuffer, data)
+		emailer := mailer.NewMailer("Verfication code", email, bodyBuffer.String())
 
 		if err := emailer.Send(); err != nil {
 			slog.Error(err.Error())

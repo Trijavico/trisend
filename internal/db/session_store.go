@@ -9,7 +9,7 @@ import (
 )
 
 type SessionStore interface {
-	CreateTransitSess(context.Context, string, string) error
+	CreateTransitSess(context.Context, string, string, int) error
 	GetTransitSessByID(context.Context, string) (string, error)
 }
 
@@ -23,9 +23,9 @@ func NewRedisSessionStore(db *redis.Client) SessionStore {
 	}
 }
 
-func (store *sessionRedisStore) CreateTransitSess(ctx context.Context, id string, code string) error {
+func (store *sessionRedisStore) CreateTransitSess(ctx context.Context, id, code string, expiry int) error {
 	key := fmt.Sprintf("login:%s", id)
-	err := store.db.Set(ctx, key, code, time.Minute*5).Err()
+	err := store.db.Set(ctx, key, code, time.Minute*time.Duration(expiry)).Err()
 	if err != nil {
 		return fmt.Errorf("failed to create transit session: %s", err)
 	}
