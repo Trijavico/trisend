@@ -1,6 +1,7 @@
 package views
 
 import (
+	"trisend/internal/config"
 	"trisend/internal/types"
 	"trisend/internal/views/components"
 	"trisend/internal/views/layouts"
@@ -25,10 +26,10 @@ templ Home(user *types.Session) {
 			</header>
 			<h1 class="pt-40 justify-self-center font-bold leading-normal text-white text-7xl">Easy and <span>Secure</span> <br/> Transfer for files</h1>
 			<ul class="commands grid grid-cols-[1fr_1fr] gap-8 pt-12 justify-self-center items-end">
-				<li>ssh trisend.dev example.txt { "<" } example.txt</li>
-				<li>scp example.txt trisend.dev:</li>
-				<li>scp -r /directory trisend.dev:</li>
-				<li>sftp -r /directory trisend.dev:</li>
+				<li>ssh { config.DOMAIN_NAME } example.txt { "<" } example.txt</li>
+				<li>scp example.txt { config.DOMAIN_NAME }:</li>
+				<li>scp -r /directory { config.DOMAIN_NAME }:</li>
+				<li>sftp -r /directory { config.DOMAIN_NAME }:</li>
 			</ul>
 			<div id="shadow" class="canvas_container"></div>
 		</main>
