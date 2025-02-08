@@ -14,4 +14,7 @@ RUN ssh-keygen -t rsa -f /app/keys/host
 
 RUN chmod +x /app/main
 
+EXPOSE 3000
+EXPOSE 22
+
 CMD ["/app/main"]
