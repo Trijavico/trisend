@@ -8,8 +8,6 @@ templ FillProfile() {
 			@CreateUserForm("", []error{})
 		</div>
 		<script>
-			let imgURL = document.querySelector("#img_placeholder").src;
-
 			function attachFileUploadListener() {
 				const uploadInput = document.querySelector("#upload");
 				if (!uploadInput) return;
@@ -18,8 +16,8 @@ templ FillProfile() {
 					const file = e.target.files[0];
 					if (file) {
 						const reader = new FileReader();
-							reader.onload = (e) => {
-							imgURL = e.target.result;
+						reader.onload = (e) => {
+							let imgURL = e.target.result;
 							document.querySelector("#img_placeholder").src = imgURL
 						};
 						reader.readAsDataURL(file);
@@ -30,7 +28,6 @@ templ FillProfile() {
 			attachFileUploadListener();
 			document.body.addEventListener("htmx:afterSwap", function () {
 				attachFileUploadListener();
-				document.querySelector("#img_placeholder").src = imgURL
 			});
 		</script>
 	}
