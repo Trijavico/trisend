@@ -14,7 +14,7 @@ templ Login() {
 		@components.Notification(1) {
 			<div id="error_notifier">
 				<strong class="block">Error Notification</strong>
-				<span>Try sending a new code</span>
+				<span>An error happened. Try sending a new code</span>
 			</div>
 		}
 		<div class="min-h-screen relative bg-[#1C1D21] text-[#f2f2f2] flex justify-center items-center">
@@ -45,6 +45,13 @@ templ Login() {
 			</div>
 		</div>
 		<script>
+			document.body.addEventListener('htmx:responseError', function(e) {
+				document.querySelector('#email_form').classList.remove('htmx-request')
+				const $errNotifier = document.querySelector('#notify_comp:has(#error_notifier)')
+
+				$errNotifier.removeAttribute('data-hide')
+				setTimeout(() => $errNotifier.setAttribute('data-hide', '') , 5000)
+			})
 			document.body.addEventListener('htmx:afterRequest', function (e) {
 				let config = e.detail.requestConfig
 				let status = e.detail.xhr.status
@@ -66,7 +73,7 @@ templ Login() {
 					$emailForm.disabled = true
 					$emailForm.querySelector('button').disabled = true
 
-					let secondsLeft = 10;
+					let secondsLeft = 60;
 					const countdownInterval = setInterval(() => {
 						secondsLeft--;
 						$countdownMsg.textContent = `Resend in ${secondsLeft} seconds`;
