@@ -33,9 +33,14 @@ func LoadConfig() {
 	SERVER_PORT = os.Getenv("PORT")
 	SSH_PORT = os.Getenv("SSH_PORT")
 	DOMAIN_NAME = os.Getenv("HOST")
+
+	if DOMAIN_NAME == "" {
+		DOMAIN_NAME = fmt.Sprintf("localhost:%s", SERVER_PORT)
+	}
+
 	if APP_ENV == "dev" {
 		HOST = fmt.Sprintf("http://%s", DOMAIN_NAME)
-	} else {
+	} else if APP_ENV == "prod" {
 		HOST = fmt.Sprintf("https://%s", DOMAIN_NAME)
 	}
 

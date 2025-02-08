@@ -29,7 +29,6 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		slog.Error(err.Error())
-		os.Exit(1)
 	}
 	config.LoadConfig()
 	SetupOAuth()

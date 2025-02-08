@@ -31,8 +31,15 @@ func NewWebServer() *Server {
 		IdleTimeout:  1 * time.Minute,
 	}
 
+	var sshport string
+	if config.SSH_PORT != "" {
+		sshport = net.JoinHostPort("0.0.0.0", config.SSH_PORT)
+	} else {
+		sshport = net.JoinHostPort("0.0.0.0", "22")
+	}
+
 	sshServer := &ssh.Server{
-		Addr:    net.JoinHostPort("0.0.0.0", config.SSH_PORT),
+		Addr:    sshport,
 		Handler: handleSSH,
 		PtyCallback: func(ctx ssh.Context, pty ssh.Pty) bool {
 			return false
