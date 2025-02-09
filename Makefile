@@ -28,6 +28,6 @@ scpdir:
 	@scp -P 2222 -r ./templates/ localhost:
 
 clean:
-	@ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:2222"
+	@ssh-keygen -f ~/.ssh/known_hosts -R "[localhost]:2222"
 	
 .PHONY: web docker build clean css
