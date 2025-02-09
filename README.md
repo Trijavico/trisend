@@ -2,7 +2,7 @@
 
 Trisend is an SSH-based file transfer solution that simplifies secure file sharing with an HTTP interface for managing access. It enables users to register their public SSH keys via a web interface, facilitating seamless file transfers through SSH commands.
 
-![App Screenshot](./github/app_image.jpg)
+![App Screenshot](./.github/app_image.png)
 
 
 ## How it works
