@@ -2,7 +2,7 @@ all: build
 	@./bin/main
 
 docker: build
-	@docker build . -t trisend:latest
+	@docker build . -t ghcr.io/trijavico/trisend:latest
 
 build: web
 	@go build -o ./bin/main cmd/api/*
